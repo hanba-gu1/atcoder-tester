@@ -1,4 +1,13 @@
+mod api;
+mod cli;
+
+use anyhow::Result;
+use clap::Parser;
+use cli::Cli;
+
 #[tokio::main]
-async fn main() {
-    println!("Hello, world!");
+async fn main() -> Result<()> {
+    let cli = Cli::parse();
+
+    cli.subcommand.exec().await
 }
