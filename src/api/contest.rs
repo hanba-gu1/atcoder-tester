@@ -163,6 +163,53 @@ pub fn specify_task<'a>(
     Ok(ret)
 }
 
+async fn get_csrf_token(requester: &Requester, contest_name: &str) -> Result<String> {
+    let url = Url::parse(&format!(
+        "https://atcoder.jp/contests/{contest_name}/submit"
+    ))?;
+    let response = requester.get(&url).await?;
+    ensure!(
+        response.status().is_success(),
+        "failed to get submit page in contest `{contest_name}` wtih status {}",
+        response.status()
+    );
+
+    let html = Html::parse_document(&response.text().await?);
+    let csrf_selector = Selector::parse("input[name=csrf_token]").unwrap();
+
+    let csrf_token = html
+        .select(&csrf_selector)
+        .next()
+        .context("could not find csrf_token")?
+        .attr("value")
+        .unwrap()
+        .to_string();
+
+    Ok(csrf_token)
+}
+
+pub async fn submit_code(
+    requester: &Requester,
+    contest_name: &str,
+    task_name: &str,
+    code: String,
+) -> Result<()> {
+    let url = Url::parse(&format!(
+        "https://atcoder.jp/contests/{contest_name}/submit"
+    ))?;
+    let csrf_token = get_csrf_token(requester, contest_name).await?;
+    let response = requester.post(&url, vec![
+        ("data.TaskScreenName".to_string(), task_name.to_string()),
+        ("data.LanguageId".to_string(), "6088".to_string()),
+        ("sourceCode".to_string(), code),
+        ("csrf_token".to_string(), csrf_token),
+    ]).await?;
+
+    ensure!(response.status().is_redirection(), "failed to submit with status {}", response.status());
+
+    Ok(())
+}
+
 #[cfg(test)]
 mod test {
     use super::*;

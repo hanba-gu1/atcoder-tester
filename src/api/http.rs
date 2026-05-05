@@ -1,6 +1,7 @@
 use std::{fs, sync::Arc, time::Duration};
 
 use anyhow::Result;
+use percent_encoding::{NON_ALPHANUMERIC, utf8_percent_encode};
 use reqwest::{Client, Response, Url, cookie::Jar};
 use tokio::{
     sync::{mpsc, oneshot},
@@ -21,7 +22,10 @@ fn build_client() -> Result<Client> {
 
 enum Request {
     Get(Url),
-    Post(Url),
+    Post {
+        url: Url,
+        body: Vec<(String, String)>,
+    },
 }
 
 #[derive(Debug)]
@@ -46,7 +50,27 @@ impl Requester {
                         let response = client.get(url).send().await.map_err(|err| err.into());
                         once_sender.send(response).unwrap();
                     }
-                    Request::Post(_) => todo!(),
+                    Request::Post { url, body } => {
+                        let body = body
+                            .into_iter()
+                            .map(|(key, value)| {
+                                format!(
+                                    "{}={}",
+                                    key,
+                                    utf8_percent_encode(&value, NON_ALPHANUMERIC)
+                                )
+                            })
+                            .collect::<Vec<_>>()
+                            .join("&");
+                        eprintln!("{body:?}");
+                        let responce = client
+                            .post(url)
+                            .body(body)
+                            .send()
+                            .await
+                            .map_err(|err| err.into());
+                        once_sender.send(responce).unwrap();
+                    }
                 }
 
                 tokio::time::sleep(Duration::from_millis(200)).await;
@@ -66,9 +90,12 @@ impl Requester {
         self.send_message(Request::Get(url.clone())).await
     }
 
-    pub async fn post(&self, url: &Url) -> Result<Response> {
-        // TODO
-        todo!()
+    pub async fn post(&self, url: &Url, body: Vec<(String, String)>) -> Result<Response> {
+        self.send_message(Request::Post {
+            url: url.clone(),
+            body,
+        })
+        .await
     }
 }
 

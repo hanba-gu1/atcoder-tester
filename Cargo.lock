@@ -93,6 +93,7 @@ dependencies = [
  "clap",
  "dirs",
  "futures",
+ "percent-encoding",
  "prettyplease",
  "reqwest",
  "scraper",

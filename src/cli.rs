@@ -42,7 +42,7 @@ impl SubCommands {
             Init(init) => init.init()?,
             Add(add) => add.add().await?,
             Test(test) => test.test()?,
-            Submit(submit) => todo!(),
+            Submit(submit) => submit.submit().await?,
             Clip(clip) => clip.clip()?,
         }
 
