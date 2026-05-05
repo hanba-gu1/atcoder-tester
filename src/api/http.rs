@@ -54,11 +54,7 @@ impl Requester {
                         let body = body
                             .into_iter()
                             .map(|(key, value)| {
-                                format!(
-                                    "{}={}",
-                                    key,
-                                    utf8_percent_encode(&value, NON_ALPHANUMERIC)
-                                )
+                                format!("{}={}", key, utf8_percent_encode(&value, NON_ALPHANUMERIC))
                             })
                             .collect::<Vec<_>>()
                             .join("&");

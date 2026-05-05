@@ -7,7 +7,11 @@ use std::{
 use anyhow::{Context as _, Result, ensure};
 
 use crate::api::{
-    config::{Config, Contest}, contest::{specify_task, submit_code}, expand_files::expand_files, http::Requester, sample_test::sample_test
+    config::{Config, Contest},
+    contest::{specify_task, submit_code},
+    expand_files::expand_files,
+    http::Requester,
+    sample_test::sample_test,
 };
 
 #[derive(Debug, clap::Args)]
@@ -69,7 +73,10 @@ impl Submit {
         }
 
         if all_ac {
-            let code = expand_files(&task_dir.join("src/main.rs"), &root_dir.join(&config.libs.path))?;
+            let code = expand_files(
+                &task_dir.join("src/main.rs"),
+                &root_dir.join(&config.libs.path),
+            )?;
             submit_code(&requester, &contest_data.name, &task.name, code).await?;
             eprintln!("Submit!");
         }

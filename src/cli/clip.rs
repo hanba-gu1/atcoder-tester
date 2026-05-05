@@ -51,17 +51,17 @@ impl Clip {
                     .context("failed to build")?;
                 ensure!(build_output.status.success(), "falied to build");
             }
-    
+
             for i in 1.. {
                 let in_file = task_dir.join(format!("samples/{i}.in"));
                 let out_file = task_dir.join(format!("samples/{i}.out"));
                 if !in_file.exists() {
                     break;
                 }
-    
+
                 let sample_in = fs::read_to_string(&in_file)?;
                 let sample_out = fs::read_to_string(&out_file)?;
-    
+
                 all_ac &= sample_test(
                     &contest_dir,
                     &contest_data,

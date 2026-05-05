@@ -198,15 +198,24 @@ pub async fn submit_code(
         "https://atcoder.jp/contests/{contest_name}/submit"
     ))?;
     let csrf_token = get_csrf_token(requester, contest_name).await?;
-    let response = requester.post(&url, vec![
-        ("data.TaskScreenName".to_string(), task_name.to_string()),
-        ("data.LanguageId".to_string(), "6088".to_string()),
-        ("sourceCode".to_string(), code),
-        ("csrf_token".to_string(), csrf_token),
-    ]).await?;
+    let response = requester
+        .post(
+            &url,
+            vec![
+                ("data.TaskScreenName".to_string(), task_name.to_string()),
+                ("data.LanguageId".to_string(), "6088".to_string()),
+                ("sourceCode".to_string(), code),
+                ("csrf_token".to_string(), csrf_token),
+            ],
+        )
+        .await?;
 
-    ensure!(response.status().is_redirection(), "failed to submit with status {}", response.status());
-    
+    ensure!(
+        response.status().is_redirection(),
+        "failed to submit with status {}",
+        response.status()
+    );
+
     Ok(())
 }
 
