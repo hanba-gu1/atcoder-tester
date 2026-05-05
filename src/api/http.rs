@@ -62,7 +62,6 @@ impl Requester {
                             })
                             .collect::<Vec<_>>()
                             .join("&");
-                        eprintln!("{body:?}");
                         let responce = client
                             .post(url)
                             .body(body)

@@ -71,6 +71,7 @@ impl Submit {
         if all_ac {
             let code = expand_files(&task_dir.join("src/main.rs"), &root_dir.join(&config.libs.path))?;
             submit_code(&requester, &contest_data.name, &task.name, code).await?;
+            eprintln!("Submit!");
         }
 
         Ok(())

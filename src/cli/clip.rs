@@ -37,38 +37,40 @@ impl Clip {
 
         let mut all_ac = true;
 
-        if !self.no_build {
-            let build_output = process::Command::new("cargo")
-                .args([
-                    "build",
-                    "--package",
-                    &format!("{}-{}", contest_data.name, task.name),
-                ])
-                .current_dir(&root_dir)
-                .stderr(Stdio::inherit())
-                .output()
-                .context("failed to build")?;
-            ensure!(build_output.status.success(), "falied to build");
-        }
-
-        for i in 1.. {
-            let in_file = task_dir.join(format!("samples/{i}.in"));
-            let out_file = task_dir.join(format!("samples/{i}.out"));
-            if !in_file.exists() {
-                break;
+        if !self.no_test && config.clip.sample_test {
+            if !self.no_build {
+                let build_output = process::Command::new("cargo")
+                    .args([
+                        "build",
+                        "--package",
+                        &format!("{}-{}", contest_data.name, task.name),
+                    ])
+                    .current_dir(&root_dir)
+                    .stderr(Stdio::inherit())
+                    .output()
+                    .context("failed to build")?;
+                ensure!(build_output.status.success(), "falied to build");
             }
-
-            let sample_in = fs::read_to_string(&in_file)?;
-            let sample_out = fs::read_to_string(&out_file)?;
-
-            all_ac &= sample_test(
-                &contest_dir,
-                &contest_data,
-                task,
-                i,
-                &sample_in,
-                &sample_out,
-            )?;
+    
+            for i in 1.. {
+                let in_file = task_dir.join(format!("samples/{i}.in"));
+                let out_file = task_dir.join(format!("samples/{i}.out"));
+                if !in_file.exists() {
+                    break;
+                }
+    
+                let sample_in = fs::read_to_string(&in_file)?;
+                let sample_out = fs::read_to_string(&out_file)?;
+    
+                all_ac &= sample_test(
+                    &contest_dir,
+                    &contest_data,
+                    task,
+                    i,
+                    &sample_in,
+                    &sample_out,
+                )?;
+            }
         }
 
         let mut clipboard = Clipboard::new()?;
@@ -79,6 +81,7 @@ impl Clip {
                 &root_dir.join(&config.libs.path),
             )?;
             clipboard.set_text(&result_file)?;
+            eprintln!("Clip!");
         } else {
             clipboard.set_text("")?;
         }
