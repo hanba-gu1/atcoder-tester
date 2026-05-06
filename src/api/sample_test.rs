@@ -5,6 +5,7 @@ use std::{
 };
 
 use anyhow::{Context as _, Result};
+use regex::Regex;
 
 use crate::api::config::{Contest, Task};
 
@@ -38,7 +39,8 @@ pub fn sample_test(
     if output.status.success() {
         if String::from_utf8_lossy(&output.stdout)
             .split_whitespace()
-            .eq(sample_out.split_whitespace())
+            .zip(sample_out.split_whitespace())
+            .all(|(out, correct)| is_correct(out, correct))
         {
             eprintln!("Sample{sample_number} ... AC!");
             return Ok(true);
@@ -62,4 +64,12 @@ pub fn sample_test(
     }
 
     Ok(false)
+}
+
+fn is_correct(out: &str, correct: &str) -> bool {
+    if Regex::new(r#"^\d+\.\d+$"#).unwrap().is_match(out) {
+        out.len() >= correct.len() && out[..correct.len() - 1] == correct[..correct.len() - 1]
+    } else {
+        out == correct
+    }
 }
