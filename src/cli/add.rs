@@ -82,6 +82,8 @@ impl Add {
 
                 try_join_all(create_sample_files).await?;
 
+                eprintln!("added task `{task}`");
+
                 Result::<()>::Ok(())
             }
         });
