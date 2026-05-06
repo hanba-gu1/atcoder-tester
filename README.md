@@ -1,7 +1,7 @@
 # atcoder-tester
 ## how to install
 ```
-$ cargo install https://github.com/hanba-gu1/atcoder-tester
+$ cargo install --git https://github.com/hanba-gu1/atcoder-tester
 ```
 
 ## usage
