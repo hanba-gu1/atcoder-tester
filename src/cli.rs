@@ -22,13 +22,19 @@ pub struct Cli {
 
 #[derive(Debug, clap::Subcommand)]
 pub enum SubCommands {
+    /// enter your session token to login
     Login,
+    /// initialize directory
     Init(Init),
+    /// add contest and download sample test case
     Add(Add),
+    /// test sample case
     #[clap(alias = "t")]
     Test(Test),
+    /// submit code
     #[clap(alias = "s")]
     Submit(Submit),
+    /// copy in clipboard
     #[clap(alias = "c")]
     Clip(Clip),
 }
