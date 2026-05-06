@@ -1,0 +1,6 @@
+[workspace]
+resolver = "3"
+members = ["libs", "template"]
+
+[workspace.dependencies]
+libs.path = "libs"

@@ -1,0 +1,25 @@
+[template]
+path = "template/src/main.rs"
+
+[libs]
+path = "libs/src/lib.rs"
+
+[generate]
+cargo_toml = """[package]
+name = "$name"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+libs.workspace = true
+proconio = "0.5.0"
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(actester)'] }
+"""
+
+[submit]
+sample_test = true
+
+[clip]
+sample_test = true

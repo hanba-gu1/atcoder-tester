@@ -1,0 +1,6 @@
+[build]
+target-dir = "target"
+rustflags = ["--cfg", "actester"]
+
+[cargo-new]
+vcs = "none"
