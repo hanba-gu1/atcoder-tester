@@ -16,6 +16,7 @@ pub fn expand_files(main_crate: &Path, library_crate: &Path) -> Result<String> {
     } = libs_file;
 
     let libs_file: syn::File = syn::parse_quote! {
+        #[allow(unused)]
         mod libs {
             #(#libs_attrs)*
             #(#libs_items)*
