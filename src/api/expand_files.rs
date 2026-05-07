@@ -9,17 +9,13 @@ pub fn expand_files(main_crate: &Path, library_crate: &Path) -> Result<String> {
     let libs_file = read_full_crate_source_code(library_crate, |_| Ok(false))
         .map_err(|err| anyhow!("{err}"))?;
 
-    let syn::File {
-        attrs: libs_attrs,
-        items: libs_items,
-        ..
-    } = libs_file;
+    let syn::File { attrs, items, .. } = libs_file;
 
     let libs_file: syn::File = syn::parse_quote! {
         #[allow(unused)]
         mod libs {
-            #(#libs_attrs)*
-            #(#libs_items)*
+            #(#attrs)*
+            #(#items)*
         }
     };
 

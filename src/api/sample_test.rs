@@ -36,11 +36,19 @@ pub fn sample_test(
 
     let output = child.wait_with_output().context("failed to run")?;
 
+    let out_diveded: Vec<_> = String::from_utf8_lossy(&output.stdout)
+        .into_owned()
+        .split_ascii_whitespace()
+        .map(|s| s.to_string())
+        .collect();
+    let correct_divided: Vec<_> = sample_out.split_ascii_whitespace().collect();
+
     if output.status.success() {
-        if String::from_utf8_lossy(&output.stdout)
-            .split_whitespace()
-            .zip(sample_out.split_whitespace())
-            .all(|(out, correct)| is_correct(out, correct))
+        if out_diveded.len() == correct_divided.len()
+            && out_diveded
+                .iter()
+                .zip(&correct_divided)
+                .all(|(out, correct)| is_correct(out, correct))
         {
             eprintln!("Sample{sample_number} ... AC!");
             return Ok(true);
