@@ -1,6 +1,7 @@
 use std::{env::current_dir, path::Path};
 
 use anyhow::{Context as _, Result, ensure};
+use percent_encoding::{NON_ALPHANUMERIC, utf8_percent_encode};
 use reqwest::Url;
 use scraper::{Html, Selector};
 
@@ -204,11 +205,13 @@ pub async fn submit_code(
             vec![
                 ("data.TaskScreenName".to_string(), task_name.to_string()),
                 ("data.LanguageId".to_string(), "6088".to_string()),
-                ("sourceCode".to_string(), code),
-                ("csrf_token".to_string(), csrf_token),
+                ("sourceCode".to_string(), utf8_percent_encode(&code, NON_ALPHANUMERIC).to_string()),
+                ("csrf_token".to_string(), utf8_percent_encode(&csrf_token, NON_ALPHANUMERIC).to_string()),
             ],
         )
         .await?;
+
+    eprintln!("{csrf_token}");
 
     ensure!(
         response.status().is_redirection(),

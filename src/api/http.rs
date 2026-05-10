@@ -1,7 +1,7 @@
 use std::{fs, sync::Arc, time::Duration};
 
 use anyhow::Result;
-use percent_encoding::{NON_ALPHANUMERIC, utf8_percent_encode};
+use dirs::home_dir;
 use reqwest::{Client, Response, Url, cookie::Jar};
 use tokio::{
     sync::{mpsc, oneshot},
@@ -9,8 +9,9 @@ use tokio::{
 };
 
 fn build_client() -> Result<Client> {
+    let home_dir = home_dir().unwrap();
     let cookies = Arc::new(Jar::default());
-    if let Ok(cookie) = fs::read_to_string("~/.actester/session_cookie") {
+    if let Ok(cookie) = fs::read_to_string(home_dir.join(".actester/session_cookie")) {
         let cookie_str = format!("REVEL_SESSION={cookie}");
         cookies.add_cookie_str(&cookie_str, &Url::parse("https://atcoder.jp")?);
     }
@@ -54,7 +55,7 @@ impl Requester {
                         let body = body
                             .into_iter()
                             .map(|(key, value)| {
-                                format!("{}={}", key, utf8_percent_encode(&value, NON_ALPHANUMERIC))
+                                format!("{}={}", key, &value)
                             })
                             .collect::<Vec<_>>()
                             .join("&");
