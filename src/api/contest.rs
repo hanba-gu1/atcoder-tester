@@ -1,45 +1,35 @@
-use std::{env::current_dir, path::Path};
+use std::{env::current_dir, iter, path::Path, time::Duration};
 
 use anyhow::{Context as _, Result, ensure};
 use percent_encoding::{NON_ALPHANUMERIC, utf8_percent_encode};
-use reqwest::Url;
+use reqwest::{Client, Url};
 use scraper::{Html, Selector};
+use tokio::{fs, join};
 
 use crate::api::{
-    config::{Contest, Task},
-    http::Requester,
+    config::{Config, Contest, Task},
+    http::get_html,
 };
 
-pub async fn get_title_and_tasks(
-    requester: &Requester,
-    contest: &str,
-) -> Result<(String, Vec<(String, String)>)> {
-    let tasks_url = Url::parse(&format!(
-        "https://atcoder.jp/contests/{contest}/tasks?lang=ja"
-    ))?;
-    let response = requester.get(&tasks_url).await?;
-    ensure!(
-        response.status().is_success(),
-        "failed to get tasks in contest `{contest}` wtih status {}",
-        response.status()
-    );
-
-    let document = Html::parse_document(&response.text().await?);
-
+pub fn get_contest_title(html: &Html) -> Result<String> {
     let contest_title_selector = Selector::parse(".contest-title").unwrap();
 
-    let contest_title = document
+    let contest_title = html
         .select(&contest_title_selector)
         .next()
         .map(|elem| elem.inner_html().trim().to_string())
-        .unwrap_or_else(|| contest.to_string());
+        .context("failed to get contest title")?;
 
+    Ok(contest_title)
+}
+
+pub fn get_tasks_name_and_title(html: &Html) -> Result<Vec<(String, String)>> {
     let tr_selector = Selector::parse("tr").unwrap();
     let a_selector = Selector::parse("a").unwrap();
 
     let mut tasks = Vec::new();
 
-    for tr_elem in document.select(&tr_selector) {
+    for tr_elem in html.select(&tr_selector) {
         if let Some(a_elem) = tr_elem.select(&a_selector).nth(1)
             && let Some(href) = a_elem.attr("href")
         {
@@ -54,27 +44,10 @@ pub async fn get_title_and_tasks(
         }
     }
 
-    Ok((contest_title, tasks))
+    Ok(tasks)
 }
 
-pub async fn get_samples(
-    requester: &Requester,
-    contest: &str,
-    task: &str,
-) -> Result<(Vec<String>, Vec<String>)> {
-    let task_url = Url::parse(&format!(
-        "https://atcoder.jp/contests/{contest}/tasks/{task}"
-    ))?;
-    let response = requester.get(&task_url).await?;
-    ensure!(
-        response.status().is_success(),
-        "failed to get samples in task `{task}` in contest `{contest}` wtih status {}",
-        response.status()
-    );
-
-    let response_text = response.text().await?;
-    let document = Html::parse_document(&response_text);
-
+pub async fn get_samples(html: &Html) -> Result<(Vec<String>, Vec<String>)> {
     let mut sample_inputs = Vec::new();
     let mut sample_outputs = Vec::new();
 
@@ -82,7 +55,7 @@ pub async fn get_samples(
     let h3_selector = Selector::parse("h3").unwrap();
     let pre_selector = Selector::parse("pre").unwrap();
 
-    for section_elem in document.select(&section_selector) {
+    for section_elem in html.select(&section_selector) {
         let Some(h3_elem) = section_elem.select(&h3_selector).next() else {
             continue;
         };
@@ -164,18 +137,48 @@ pub fn specify_task<'a>(
     Ok(ret)
 }
 
-async fn get_csrf_token(requester: &Requester, contest_name: &str) -> Result<String> {
-    let url = Url::parse(&format!(
-        "https://atcoder.jp/contests/{contest_name}/submit"
-    ))?;
-    let response = requester.get(&url).await?;
-    ensure!(
-        response.status().is_success(),
-        "failed to get submit page in contest `{contest_name}` wtih status {}",
-        response.status()
-    );
+pub async fn set_task_crate(
+    contest_name: &str,
+    task_name: &str,
+    config: &Config,
+    contest_dir: &Path,
+    template_file_text: &[u8],
+    task_page_html: &Html,
+) -> Result<()> {
+    let task_dir = contest_dir.join(task_name);
+    let task_crate_name = format!("{}-{}", contest_name, task_name);
+    let new_cargo_toml = config
+        .generate
+        .cargo_toml
+        .replace("$name", &task_crate_name);
+    let samples_dir = task_dir.join("samples");
 
-    let html = Html::parse_document(&response.text().await?);
+    fs::create_dir_all(&task_dir).await?;
+    fs::write(task_dir.join("Cargo.toml"), &new_cargo_toml).await?;
+
+    fs::create_dir_all(task_dir.join("src")).await?;
+    fs::write(task_dir.join("src/main.rs"), &template_file_text).await?;
+
+    let create_files = async {
+        let (sample_inputs, sample_outputs) = get_samples(task_page_html).await?;
+
+        fs::create_dir_all(&samples_dir).await?;
+        for (i, (sample_in, sample_out)) in iter::zip(&sample_inputs, &sample_outputs).enumerate() {
+            let samples_dir = &samples_dir;
+            fs::write(samples_dir.join(format!("{}.in", i + 1)), sample_in).await?;
+            fs::write(samples_dir.join(format!("{}.out", i + 1)), sample_out).await?;
+        }
+
+        eprintln!("added task `{task_name}`");
+        Result::<()>::Ok(())
+    };
+
+    join!(create_files, tokio::time::sleep(Duration::from_millis(400))).0?;
+
+    Ok(())
+}
+
+async fn get_csrf_token(html: &Html) -> Result<String> {
     let csrf_selector = Selector::parse("input[name=csrf_token]").unwrap();
 
     let csrf_token = html
@@ -190,28 +193,42 @@ async fn get_csrf_token(requester: &Requester, contest_name: &str) -> Result<Str
 }
 
 pub async fn submit_code(
-    requester: &Requester,
+    client: &Client,
     contest_name: &str,
     task_name: &str,
-    code: String,
+    source_code: String,
 ) -> Result<()> {
-    let url = Url::parse(&format!(
+    let submit_page_url = Url::parse(&format!(
         "https://atcoder.jp/contests/{contest_name}/submit"
     ))?;
-    let csrf_token = get_csrf_token(requester, contest_name).await?;
-    let response = requester
-        .post(
-            &url,
-            vec![
-                ("data.TaskScreenName".to_string(), task_name.to_string()),
-                ("data.LanguageId".to_string(), "6088".to_string()),
-                ("sourceCode".to_string(), utf8_percent_encode(&code, NON_ALPHANUMERIC).to_string()),
-                ("csrf_token".to_string(), utf8_percent_encode(&csrf_token, NON_ALPHANUMERIC).to_string()),
-            ],
-        )
-        .await?;
 
-    eprintln!("{csrf_token}");
+    let submit_page_html = get_html(client, submit_page_url.clone())
+        .await
+        .context("failed to get submit page")?;
+
+    let rust_language_id = "6088";
+    let encoded_source_code = utf8_percent_encode(&source_code, NON_ALPHANUMERIC).to_string();
+    let csrf_token = get_csrf_token(&submit_page_html).await?;
+    let encoded_csrf_token = utf8_percent_encode(&csrf_token, NON_ALPHANUMERIC).to_string();
+
+    let request_body = [
+        ("data.TaskScreenName", task_name),
+        ("data.LanguageId", rust_language_id),
+        ("sourceCode", &encoded_source_code),
+        ("csrf_token", &encoded_csrf_token),
+    ];
+
+    let request_body = request_body
+        .into_iter()
+        .map(|(key, value)| format!("{key}={value}"))
+        .collect::<Vec<_>>()
+        .join("&");
+
+    let response = client
+        .post(submit_page_url)
+        .body(request_body)
+        .send()
+        .await?;
 
     ensure!(
         response.status().is_redirection(),
@@ -225,50 +242,50 @@ pub async fn submit_code(
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::api::http::build_client;
 
     #[tokio::test]
-    async fn get_tasks_test() -> Result<()> {
-        let requester = Requester::new()?;
-        let contest = "abc455";
+    async fn get_contest_title_test() -> Result<()> {
+        let client = build_client()?;
+        let tasks_url = Url::parse("https://atcoder.jp/contests/abc457/tasks?lang=ja").unwrap();
+        let html = get_html(&client, tasks_url).await?;
 
-        let (title, tasks) = get_title_and_tasks(&requester, contest).await?;
-        let (tasks, task_titles): (Vec<_>, Vec<_>) = tasks.into_iter().unzip();
-
+        let contest_title = get_contest_title(&html)?;
         assert_eq!(
-            title,
-            "Ｓｋｙ株式会社プログラミングコンテスト2026（AtCoder Beginner Contest 455）"
-        );
-        assert_eq!(
-            tasks,
-            [
-                "abc455_a", "abc455_b", "abc455_c", "abc455_d", "abc455_e", "abc455_f", "abc455_g"
-            ]
-        );
-        assert_eq!(
-            task_titles,
-            [
-                "455",
-                "Spiral Galaxy",
-                "Vanish",
-                "Card Pile Query",
-                "Unbalanced ABC Substrings",
-                "Merge Slimes 2",
-                "Balanced Subarrays"
-            ]
+            contest_title,
+            "Polaris.AI プログラミングコンテスト 2026（AtCoder Beginner Contest 457）"
         );
 
         Ok(())
     }
 
     #[tokio::test]
-    async fn get_samples_test() -> Result<()> {
-        let requester = Requester::new()?;
-        let contest = "abc455";
-        let task = "abc455_a";
+    async fn get_tasks_name_and_title_test() -> Result<()> {
+        let client = build_client()?;
+        let tasks_url = Url::parse("https://atcoder.jp/contests/abc457/tasks?lang=ja").unwrap();
+        let html = get_html(&client, tasks_url).await?;
 
-        let (sample_inputs, sample_outputs) = get_samples(&requester, contest, task).await?;
-        assert_eq!(sample_inputs, ["4 5 5\n", "1 3 7\n", "6 6 6\n"]);
-        assert_eq!(sample_outputs, ["Yes\n", "No\n", "No\n"]);
+        let tasks = get_tasks_name_and_title(&html)?;
+        let (names, titles): (Vec<_>, Vec<_>) = tasks.into_iter().unzip();
+
+        assert_eq!(
+            names,
+            [
+                "abc457_a", "abc457_b", "abc457_c", "abc457_d", "abc457_e", "abc457_f", "abc457_g"
+            ]
+        );
+        assert_eq!(
+            titles,
+            [
+                "Array",
+                "Arrays",
+                "Long Sequence",
+                "Raise Minimum",
+                "Crossing Table Cloth",
+                "Second Gap",
+                "Catch All Apples"
+            ]
+        );
 
         Ok(())
     }

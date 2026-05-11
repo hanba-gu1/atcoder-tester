@@ -1,9 +1,8 @@
-use std::{
-    fs,
-    io::{self, Write},
-};
+use std::io::{self, Write};
 
 use anyhow::Result;
+
+use crate::api::http::set_session_token;
 
 pub fn login() -> Result<()> {
     print!("enter REVEL_SESSION value: ");
@@ -12,10 +11,7 @@ pub fn login() -> Result<()> {
     let mut buffer = String::new();
     io::stdin().read_line(&mut buffer)?;
 
-    let actester_dir = dirs::home_dir().unwrap().join(".actester");
-
-    fs::create_dir_all(&actester_dir)?;
-    fs::write(actester_dir.join("session_cookie"), buffer.trim())?;
+    set_session_token(&buffer)?;
 
     Ok(())
 }

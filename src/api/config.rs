@@ -6,6 +6,9 @@ use std::{
 use anyhow::{Context, Result, bail};
 use serde::{Deserialize, Serialize};
 
+pub const CONFIG_FILE_NAME: &str = "actester.toml";
+pub const CONTEST_DATA_FILE_NAME: &str = "contest.json";
+
 #[derive(Debug, Deserialize)]
 pub struct Config {
     pub template: Template,
@@ -20,15 +23,16 @@ impl Config {
         let mut dir = dir.to_path_buf();
 
         let config = loop {
-            if dir.join("actester.toml").exists() {
+            let config_file_path = dir.join(CONFIG_FILE_NAME);
+            if config_file_path.exists() {
                 break toml::from_slice(
-                    &fs::read(dir.join("actester.toml"))
-                        .context("failed to read `actester.toml`")?,
+                    &fs::read(config_file_path)
+                        .context(format!("failed to read `{CONFIG_FILE_NAME}`"))?,
                 )?;
             }
             if !dir.pop() {
                 bail!(
-                    "could not find `actester.toml` in `{}` or any parent directory",
+                    "could not find `{CONFIG_FILE_NAME}` in `{}` or any parent directory",
                     dir.display()
                 );
             }
@@ -75,15 +79,16 @@ impl Contest {
         let mut dir = dir.to_path_buf();
 
         let contest_data = loop {
-            if dir.join("contest.json").exists() {
-                let content =
-                    fs::read(dir.join("contest.json")).context("failed read `contest.json`")?;
+            let contest_data_file_path = dir.join(CONTEST_DATA_FILE_NAME);
+            if contest_data_file_path.exists() {
+                let content = fs::read(contest_data_file_path)
+                    .context(format!("failed read `{CONTEST_DATA_FILE_NAME}`"))?;
                 let contest_data = serde_json::from_slice::<Contest>(&content)?;
                 break contest_data;
             }
             if !dir.pop() {
                 bail!(
-                    "could not find `actester.toml` in `{}` or any parent directory",
+                    "could not find `{CONTEST_DATA_FILE_NAME}` in `{}` or any parent directory",
                     dir.display()
                 );
             }

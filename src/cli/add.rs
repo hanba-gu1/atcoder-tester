@@ -1,12 +1,12 @@
-use std::{collections::HashSet, env::current_dir, iter};
+use std::{collections::HashSet, env::current_dir};
 
 use crate::api::{
-    config::{Config, Contest, Task},
-    contest::{get_samples, get_title_and_tasks},
-    http::Requester,
+    config::{CONTEST_DATA_FILE_NAME, Config, Contest, Task},
+    contest::{get_contest_title, get_tasks_name_and_title, set_task_crate},
+    http::{build_client, get_html},
 };
-use anyhow::Result;
-use futures::future::try_join_all;
+use anyhow::{Context, Result};
+use reqwest::Url;
 use tokio::fs;
 use toml_edit::{Array, DocumentMut, Item, Table, Value};
 
@@ -18,12 +18,20 @@ pub struct Add {
 impl Add {
     pub async fn add(&self) -> Result<()> {
         let (root_dir, config) = Config::read(&current_dir()?)?;
-        let requester = Requester::new()?;
+        let client = build_client()?;
 
         let contest_dir = root_dir.join(&self.contest);
         fs::create_dir_all(&contest_dir).await?;
 
-        let (contest_title, tasks) = get_title_and_tasks(&requester, &self.contest).await?;
+        let tasks_page_url = Url::parse(&format!(
+            "https://atcoder.jp/contests/{}/tasks?lang=ja",
+            self.contest
+        ))
+        .unwrap();
+        let tasks_page_html = get_html(&client, tasks_page_url).await?;
+
+        let contest_title = get_contest_title(&tasks_page_html)?;
+        let tasks = get_tasks_name_and_title(&tasks_page_html)?;
 
         let contest_data = Contest {
             name: self.contest.clone(),
@@ -35,60 +43,34 @@ impl Add {
                 .collect(),
         };
         fs::write(
-            contest_dir.join("contest.json"),
+            contest_dir.join(CONTEST_DATA_FILE_NAME),
             &serde_json::to_string_pretty(&contest_data)?,
         )
         .await?;
 
-        let add_tasks = tasks.iter().map(|(task, _)| {
-            let root_dir = &root_dir;
-            let config = &config;
-            let requester = &requester;
-            let contest_dir = &contest_dir;
-            let task_dir = contest_dir.join(task);
-            let task_crate_name = format!("{}-{}", self.contest, task);
-            let new_cargo_toml = config
-                .generate
-                .cargo_toml
-                .replace("$name", &task_crate_name);
-            let samples_dir = task_dir.join("samples");
+        let template_file_path = root_dir.join(&config.template.path);
+        let template_file_text = fs::read(&template_file_path).await?;
 
-            async move {
-                fs::create_dir_all(&task_dir).await?;
-                fs::write(task_dir.join("Cargo.toml"), &new_cargo_toml).await?;
+        for (task, _) in &tasks {
+            let task_page_url = Url::parse(&format!(
+                "https://atcoder.jp/contests/{}/tasks/{task}?lang=ja",
+                self.contest
+            ))
+            .unwrap();
+            let task_page_html = get_html(&client, task_page_url)
+                .await
+                .context(format!("failed to get task `{task}` page"))?;
 
-                fs::create_dir_all(task_dir.join("src")).await?;
-                fs::copy(
-                    root_dir.join(&config.template.path),
-                    task_dir.join("src/main.rs"),
-                )
-                .await?;
-
-                fs::create_dir_all(&samples_dir).await?;
-                let (sample_inputs, sample_outputs) =
-                    get_samples(requester, &self.contest, task).await?;
-
-                let create_sample_files = iter::zip(&sample_inputs, &sample_outputs)
-                    .enumerate()
-                    .map(|(i, (sample_in, sample_out))| {
-                        let samples_dir = &samples_dir;
-                        async move {
-                            fs::write(samples_dir.join(format!("{}.in", i + 1)), sample_in).await?;
-                            fs::write(samples_dir.join(format!("{}.out", i + 1)), sample_out)
-                                .await?;
-                            Result::<()>::Ok(())
-                        }
-                    });
-
-                try_join_all(create_sample_files).await?;
-
-                eprintln!("added task `{task}`");
-
-                Result::<()>::Ok(())
-            }
-        });
-
-        try_join_all(add_tasks).await?;
+            set_task_crate(
+                &self.contest,
+                task,
+                &config,
+                &contest_dir,
+                &template_file_text,
+                &task_page_html,
+            )
+            .await?;
+        }
 
         let cargo_toml_path = root_dir.join("Cargo.toml");
 
