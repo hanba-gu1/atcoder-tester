@@ -1,27 +1,22 @@
-use std::{
-    fs,
-    path::PathBuf,
-    sync::{Arc, LazyLock},
-};
+use std::{fs, sync::Arc};
 
 use anyhow::{Context, Result};
 use dirs::home_dir;
 use reqwest::{Client, IntoUrl, Url, cookie::Jar};
 use scraper::Html;
 
-static SESSION_TOKEN_FILE_PATH: LazyLock<PathBuf> =
-    LazyLock::new(|| home_dir().unwrap().join(".actester/session_token"));
-
 pub fn set_session_token(session_token: &str) -> Result<()> {
-    let session_token_file_path = &*SESSION_TOKEN_FILE_PATH;
-    fs::create_dir_all(session_token_file_path)?;
+    let actester_dir = home_dir().unwrap().join(".actester");
+    let session_token_file_path = actester_dir.join("session_token");
+    fs::create_dir_all(session_token_file_path.parent().unwrap())?;
     fs::write(session_token_file_path, session_token)?;
 
     Ok(())
 }
 
 fn read_session_token() -> Result<Option<String>> {
-    let session_token_file_path = &*SESSION_TOKEN_FILE_PATH;
+    let actester_dir = home_dir().unwrap().join(".actester");
+    let session_token_file_path = actester_dir.join("session_token");
     let session_token = if session_token_file_path.exists() {
         Some(
             fs::read_to_string(session_token_file_path)
