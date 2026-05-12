@@ -1,7 +1,4 @@
-use std::{
-    fs,
-    sync::Arc,
-};
+use std::{fs, sync::Arc};
 
 use anyhow::{Context, Result};
 use dirs::home_dir;
