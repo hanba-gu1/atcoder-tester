@@ -16,7 +16,7 @@ fn contains_removed_cfg(attrs: &[Attribute]) -> bool {
 }
 
 macro_rules! get_attrs {
-    ($arg:expr, $($var:ident),* $(,)?) => {
+    ($arg:expr, $($var:path),* $(,)?) => {
         match $arg {
             $($var(e) => &e.attrs,)*
             _ => &[],
