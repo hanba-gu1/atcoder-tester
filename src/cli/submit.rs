@@ -10,7 +10,7 @@ use crate::api::{
     config::{Config, Contest},
     contest::{specify_task, submit_code},
     expand_files::expand_files,
-    http::Requester,
+    http::build_client,
     sample_test::sample_test,
 };
 
@@ -25,7 +25,7 @@ pub struct Submit {
 
 impl Submit {
     pub async fn submit(&self) -> Result<()> {
-        let requester = Requester::new()?;
+        let client = build_client()?;
         let current_dir = current_dir()?;
         let (root_dir, config) = Config::read(&current_dir)?;
         let (contest_dir, contest_data) = Contest::read(&current_dir)?;
@@ -77,7 +77,7 @@ impl Submit {
                 &task_dir.join("src/main.rs"),
                 &root_dir.join(&config.libs.path),
             )?;
-            submit_code(&requester, &contest_data.name, &task.name, code).await?;
+            submit_code(&client, &contest_data.name, &task.name, code).await?;
             eprintln!("Submit!");
         }
 

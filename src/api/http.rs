@@ -1,16 +1,43 @@
-use std::{fs, sync::Arc, time::Duration};
-
-use anyhow::Result;
-use percent_encoding::{NON_ALPHANUMERIC, utf8_percent_encode};
-use reqwest::{Client, Response, Url, cookie::Jar};
-use tokio::{
-    sync::{mpsc, oneshot},
-    task::JoinHandle,
+use std::{
+    fs,
+    path::PathBuf,
+    sync::{Arc, LazyLock},
 };
 
-fn build_client() -> Result<Client> {
+use anyhow::{Context, Result};
+use dirs::home_dir;
+use reqwest::{Client, IntoUrl, Url, cookie::Jar};
+use scraper::Html;
+
+static SESSION_TOKEN_FILE_PATH: LazyLock<PathBuf> =
+    LazyLock::new(|| home_dir().unwrap().join(".actester/session_token"));
+
+pub fn set_session_token(session_token: &str) -> Result<()> {
+    let session_token_file_path = &*SESSION_TOKEN_FILE_PATH;
+    fs::create_dir_all(session_token_file_path)?;
+    fs::write(session_token_file_path, session_token)?;
+
+    Ok(())
+}
+
+fn read_session_token() -> Result<Option<String>> {
+    let session_token_file_path = &*SESSION_TOKEN_FILE_PATH;
+    let session_token = if session_token_file_path.exists() {
+        Some(
+            fs::read_to_string(session_token_file_path)
+                .context("failed to read session_token file")?,
+        )
+    } else {
+        None
+    };
+
+    Ok(session_token)
+}
+
+pub fn build_client() -> Result<Client> {
     let cookies = Arc::new(Jar::default());
-    if let Ok(cookie) = fs::read_to_string("~/.actester/session_cookie") {
+
+    if let Some(cookie) = read_session_token()? {
         let cookie_str = format!("REVEL_SESSION={cookie}");
         cookies.add_cookie_str(&cookie_str, &Url::parse("https://atcoder.jp")?);
     }
@@ -20,82 +47,12 @@ fn build_client() -> Result<Client> {
     Ok(client)
 }
 
-enum Request {
-    Get(Url),
-    Post {
-        url: Url,
-        body: Vec<(String, String)>,
-    },
-}
+pub async fn get_html(client: &Client, url: impl IntoUrl) -> Result<Html> {
+    let response = client.get(url).send().await?;
 
-#[derive(Debug)]
-pub struct Requester {
-    handle: JoinHandle<Result<()>>,
-    sender: mpsc::Sender<(oneshot::Sender<Result<Response>>, Request)>,
-}
+    let document = response.text().await?;
 
-impl Requester {
-    pub fn new() -> Result<Self> {
-        let client = build_client()?;
+    let html = Html::parse_document(&document);
 
-        let (sender, mut receiver) = mpsc::channel::<(oneshot::Sender<_>, _)>(256);
-
-        let handle = tokio::spawn(async move {
-            loop {
-                let Some((once_sender, request)) = receiver.recv().await else {
-                    continue;
-                };
-                match request {
-                    Request::Get(url) => {
-                        let response = client.get(url).send().await.map_err(|err| err.into());
-                        once_sender.send(response).unwrap();
-                    }
-                    Request::Post { url, body } => {
-                        let body = body
-                            .into_iter()
-                            .map(|(key, value)| {
-                                format!("{}={}", key, utf8_percent_encode(&value, NON_ALPHANUMERIC))
-                            })
-                            .collect::<Vec<_>>()
-                            .join("&");
-                        let responce = client
-                            .post(url)
-                            .body(body)
-                            .send()
-                            .await
-                            .map_err(|err| err.into());
-                        once_sender.send(responce).unwrap();
-                    }
-                }
-
-                tokio::time::sleep(Duration::from_millis(300)).await;
-            }
-        });
-
-        Ok(Self { handle, sender })
-    }
-
-    async fn send_message(&self, request: Request) -> Result<Response> {
-        let (once_sender, once_receiver) = oneshot::channel();
-        self.sender.send((once_sender, request)).await?;
-        once_receiver.await?
-    }
-
-    pub async fn get(&self, url: &Url) -> Result<Response> {
-        self.send_message(Request::Get(url.clone())).await
-    }
-
-    pub async fn post(&self, url: &Url, body: Vec<(String, String)>) -> Result<Response> {
-        self.send_message(Request::Post {
-            url: url.clone(),
-            body,
-        })
-        .await
-    }
-}
-
-impl Drop for Requester {
-    fn drop(&mut self) {
-        self.handle.abort();
-    }
+    Ok(html)
 }

@@ -1,5 +1,7 @@
-use anyhow::Result;
+use anyhow::{Result, ensure};
 use std::{fs, path::PathBuf};
+
+use crate::api::config::CONFIG_FILE_NAME;
 
 #[derive(Debug, clap::Args)]
 pub struct Init {
@@ -9,14 +11,18 @@ pub struct Init {
 
 impl Init {
     pub fn init(&self) -> Result<()> {
+        let config_file_path = self.dest.join(CONFIG_FILE_NAME);
+
+        ensure!(
+            !config_file_path.exists(),
+            format!("`{CONFIG_FILE_NAME}` already exists")
+        );
+
         fs::write(
             self.dest.join(".gitignore"),
             include_bytes!("assets/gitignore"),
         )?;
-        fs::write(
-            self.dest.join("actester.toml"),
-            include_bytes!("assets/actester.toml"),
-        )?;
+        fs::write(&config_file_path, include_bytes!("assets/actester.toml"))?;
         fs::write(
             self.dest.join("Cargo.toml"),
             include_bytes!("assets/workspace-Cargo.toml"),
