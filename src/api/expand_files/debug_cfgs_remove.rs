@@ -63,16 +63,9 @@ fn retain_punctuated<T, P, F>(punct: &mut syn::punctuated::Punctuated<T, P>, mut
 where
     F: FnMut(&T) -> bool,
 {
-    let old_punct = std::mem::take(punct);
-    for pair in old_punct.into_pairs() {
-        let (value, punct_token) = pair.into_tuple();
-        if keep(&value) {
-            punct.push_value(value);
-            if let Some(pt) = punct_token {
-                punct.push_punct(pt);
-            }
-        }
-    }
+    let mut old_punct: Vec<_> = std::mem::take(punct).into_pairs().collect();
+    old_punct.retain(|p| keep(p.value()));
+    *punct = old_punct.into_iter().collect();
 }
 
 pub(super) struct DebugCfgsRemover;
