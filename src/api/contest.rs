@@ -220,18 +220,21 @@ pub async fn submit_code(
 
     let request_body = request_body
         .into_iter()
-        .map(|(key, value)| format!("{key}={value}"))
+        .map(|(key, value)| format!("{key}={}", value.trim()))
         .collect::<Vec<_>>()
         .join("&");
 
+    tokio::time::sleep(Duration::from_millis(1000)).await;
+
     let response = client
         .post(submit_page_url)
+        .header(reqwest::header::CONTENT_TYPE, "application/x-www-form-urlencoded")
         .body(request_body)
         .send()
         .await?;
 
     ensure!(
-        response.status().is_redirection(),
+        response.status().is_success(),
         "failed to submit with status {}",
         response.status()
     );

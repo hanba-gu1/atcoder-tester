@@ -27,6 +27,8 @@ pub struct Clip {
 
 impl Clip {
     pub fn clip(&self) -> Result<()> {
+        let mut clipboard = Clipboard::new()?;
+        
         let current_dir = current_dir()?;
         let (root_dir, config) = Config::read(&current_dir)?;
         let (contest_dir, contest_data) = Contest::read(&current_dir)?;
@@ -72,8 +74,6 @@ impl Clip {
                 )?;
             }
         }
-
-        let mut clipboard = Clipboard::new()?;
 
         if all_ac {
             let result_file = expand_files(
