@@ -1,6 +1,8 @@
 use std::{
     borrow::Cow,
     env::{self, current_dir},
+    ffi::OsStr,
+    os::unix::ffi::OsStrExt,
     path::{Path, PathBuf},
     process::Command,
 };
@@ -26,23 +28,26 @@ impl Open {
         let task = specify_task(&contest_dir, &contest_data, self.task.as_deref())?;
         let task_dir = contest_dir.join(&task.name);
 
-        let terminal: Cow<Path> = if let Some(terminal) = config.open.terminal.as_deref() {
-            terminal.into()
-        } else {
-            PathBuf::from(env::var("SHELL")?).into()
-        };
-
         let command = config
             .open
             .command
             .replace("$file", &task_dir.join("src/main.rs").to_string_lossy());
+        let command: Vec<_> = command.split_ascii_whitespace().collect();
 
-        let output = Command::new(terminal.as_ref())
-            .arg(&command)
+        let output = Command::new(command[0])
+            .args(if command.is_empty() {
+                &[][..]
+            } else {
+                &command[1..]
+            })
             .output()
             .context("failed to open file")?;
 
-        ensure!(output.status.success(), "failed to open file");
+        ensure!(
+            output.status.success(),
+            "failed to open file\nstderr: {}",
+            OsStr::from_bytes(&output.stderr).display()
+        );
 
         Ok(())
     }
