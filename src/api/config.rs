@@ -70,7 +70,6 @@ pub struct Clip {
 
 #[derive(Debug, Deserialize)]
 pub struct Open {
-    pub terminal: Option<PathBuf>,
     pub command: String,
 }
 

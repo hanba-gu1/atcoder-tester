@@ -1,11 +1,4 @@
-use std::{
-    borrow::Cow,
-    env::{self, current_dir},
-    ffi::OsStr,
-    os::unix::ffi::OsStrExt,
-    path::{Path, PathBuf},
-    process::Command,
-};
+use std::{env::current_dir, ffi::OsStr, os::unix::ffi::OsStrExt, process::Command};
 
 use anyhow::{Context as _, Result, ensure};
 
