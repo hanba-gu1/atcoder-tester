@@ -23,3 +23,6 @@ sample_test = true
 
 [clip]
 sample_test = true
+
+[open]
+command = "code $file"

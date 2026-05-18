@@ -2,17 +2,18 @@ mod add;
 mod clip;
 mod init;
 mod login;
+mod open;
 mod submit;
 mod test;
 
 use add::Add;
 use anyhow::Result;
+use clip::Clip;
 use init::Init;
 use login::login;
+use open::Open;
 use submit::Submit;
 use test::Test;
-
-use crate::cli::clip::Clip;
 
 #[derive(Debug, clap::Parser)]
 pub struct Cli {
@@ -37,6 +38,9 @@ pub enum SubCommands {
     /// copy in clipboard
     #[clap(alias = "c")]
     Clip(Clip),
+    /// open source code
+    #[clap(alias = "o")]
+    Open(Open),
 }
 
 impl SubCommands {
@@ -50,6 +54,7 @@ impl SubCommands {
             Test(test) => test.test()?,
             Submit(submit) => submit.submit().await?,
             Clip(clip) => clip.clip()?,
+            Open(open) => open.open()?,
         }
 
         Ok(())

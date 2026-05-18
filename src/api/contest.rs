@@ -228,7 +228,10 @@ pub async fn submit_code(
 
     let response = client
         .post(submit_page_url)
-        .header(reqwest::header::CONTENT_TYPE, "application/x-www-form-urlencoded")
+        .header(
+            reqwest::header::CONTENT_TYPE,
+            "application/x-www-form-urlencoded",
+        )
         .body(request_body)
         .send()
         .await?;
