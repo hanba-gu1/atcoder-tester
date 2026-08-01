@@ -16,6 +16,7 @@ pub struct Config {
     pub generate: Generate,
     pub submit: Submit,
     pub clip: Clip,
+    pub open: Open,
 }
 
 impl Config {
@@ -65,6 +66,11 @@ pub struct Submit {
 #[derive(Debug, Deserialize)]
 pub struct Clip {
     pub sample_test: bool,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct Open {
+    pub command: String,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
