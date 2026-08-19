@@ -5,6 +5,7 @@ use std::{
 };
 
 use anyhow::{Context as _, Result};
+use lazy_regex::{Lazy, lazy_regex};
 use regex::Regex;
 
 use crate::api::config::{Contest, Task};
@@ -75,7 +76,9 @@ pub fn sample_test(
 }
 
 fn is_correct(out: &str, correct: &str) -> bool {
-    if Regex::new(r#"^\d+\.\d+$"#).unwrap().is_match(out) {
+    let decimal_pattern: Lazy<Regex> = lazy_regex!(r#"^\d+\.\d+$"#);
+
+    if decimal_pattern.is_match(out) {
         out.len() >= correct.len() && out[..correct.len() - 1] == correct[..correct.len() - 1]
     } else {
         out == correct
