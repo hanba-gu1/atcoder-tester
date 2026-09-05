@@ -24,7 +24,9 @@ fn is_correct(out: &str, correct: &str) -> bool {
     let decimal_pattern = lazy_regex!(r#"^\d+\.\d+$"#);
 
     if decimal_pattern.is_match(out) {
-        out.len() >= correct.len() && out[..correct.len() - 1] == correct[..correct.len() - 1]
+        let out: f64 = out.parse().unwrap();
+        let correct: f64 = correct.parse().unwrap();
+        (out - correct).abs() <= 1e-5
     } else {
         out == correct
     }
