@@ -58,7 +58,7 @@ pub fn get_tasks_name_and_title(html: &Html) -> Result<Vec<(String, String)>> {
     Ok(tasks)
 }
 
-pub async fn get_samples(html: &Html) -> Result<(Vec<String>, Vec<String>)> {
+pub fn get_samples(html: &Html) -> Result<(Vec<String>, Vec<String>)> {
     let mut sample_inputs = Vec::new();
     let mut sample_outputs = Vec::new();
 
@@ -171,7 +171,7 @@ pub async fn set_task_crate(
     fs::write(task_dir.join("src/main.rs"), &template_file_text).await?;
 
     let create_files = async {
-        let (sample_inputs, sample_outputs) = get_samples(task_page_html).await?;
+        let (sample_inputs, sample_outputs) = get_samples(task_page_html)?;
 
         fs::create_dir_all(&samples_dir).await?;
         for (i, (sample_in, sample_out)) in iter::zip(&sample_inputs, &sample_outputs).enumerate() {
