@@ -11,7 +11,7 @@ use crate::api::{
     http::get_html,
 };
 
-macro_rules! static_selector {
+macro_rules! lazy_selector {
     ($selector:expr) => {
         {
             static S: ::std::sync::LazyLock<::scraper::Selector> = ::std::sync::LazyLock::new(
@@ -23,7 +23,7 @@ macro_rules! static_selector {
 }
 
 pub fn get_contest_title(html: &Html) -> Result<String> {
-    let contest_title_selector = static_selector!(".contest-title");
+    let contest_title_selector = lazy_selector!(".contest-title");
 
     let contest_title = html
         .select(contest_title_selector)
@@ -35,8 +35,8 @@ pub fn get_contest_title(html: &Html) -> Result<String> {
 }
 
 pub fn get_tasks_name_and_title(html: &Html) -> Result<Vec<(String, String)>> {
-    let tr_selector = static_selector!("tr");
-    let a_selector = static_selector!("a");
+    let tr_selector = lazy_selector!("tr");
+    let a_selector = lazy_selector!("a");
 
     let mut tasks = Vec::new();
 
@@ -62,9 +62,9 @@ pub async fn get_samples(html: &Html) -> Result<(Vec<String>, Vec<String>)> {
     let mut sample_inputs = Vec::new();
     let mut sample_outputs = Vec::new();
 
-    let section_selector = static_selector!("section");
-    let h3_selector = static_selector!("h3");
-    let pre_selector = static_selector!("pre");
+    let section_selector = lazy_selector!("section");
+    let h3_selector = lazy_selector!("h3");
+    let pre_selector = lazy_selector!("pre");
 
     for section_elem in html.select(section_selector) {
         let Some(h3_elem) = section_elem.select(h3_selector).next() else {
@@ -190,7 +190,7 @@ pub async fn set_task_crate(
 }
 
 async fn get_csrf_token(html: &Html) -> Result<String> {
-    let csrf_selector = static_selector!("input[name=csrf_token]");
+    let csrf_selector = lazy_selector!("input[name=csrf_token]");
 
     let csrf_token = html
         .select(csrf_selector)
