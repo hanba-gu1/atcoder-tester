@@ -3,7 +3,7 @@ use std::{env::current_dir, iter, path::Path, time::Duration};
 use anyhow::{Context as _, Result, ensure};
 use percent_encoding::{NON_ALPHANUMERIC, utf8_percent_encode};
 use reqwest::{Client, Url};
-use scraper::{Html, Selector};
+use scraper::Html;
 use tokio::{fs, join};
 
 use crate::api::{
@@ -11,11 +11,22 @@ use crate::api::{
     http::get_html,
 };
 
+macro_rules! lazy_selector {
+    ($selector:expr) => {
+        {
+            static S: ::std::sync::LazyLock<::scraper::Selector> = ::std::sync::LazyLock::new(
+                || ::scraper::Selector::parse($selector).unwrap()
+            );
+            &*S
+        }
+    };
+}
+
 pub fn get_contest_title(html: &Html) -> Result<String> {
-    let contest_title_selector = Selector::parse(".contest-title").unwrap();
+    let contest_title_selector = lazy_selector!(".contest-title");
 
     let contest_title = html
-        .select(&contest_title_selector)
+        .select(contest_title_selector)
         .next()
         .map(|elem| elem.inner_html().trim().to_string())
         .context("failed to get contest title")?;
@@ -24,13 +35,13 @@ pub fn get_contest_title(html: &Html) -> Result<String> {
 }
 
 pub fn get_tasks_name_and_title(html: &Html) -> Result<Vec<(String, String)>> {
-    let tr_selector = Selector::parse("tr").unwrap();
-    let a_selector = Selector::parse("a").unwrap();
+    let tr_selector = lazy_selector!("tr");
+    let a_selector = lazy_selector!("a");
 
     let mut tasks = Vec::new();
 
-    for tr_elem in html.select(&tr_selector) {
-        if let Some(a_elem) = tr_elem.select(&a_selector).nth(1)
+    for tr_elem in html.select(tr_selector) {
+        if let Some(a_elem) = tr_elem.select(a_selector).nth(1)
             && let Some(href) = a_elem.attr("href")
         {
             let task_name = href
@@ -47,28 +58,28 @@ pub fn get_tasks_name_and_title(html: &Html) -> Result<Vec<(String, String)>> {
     Ok(tasks)
 }
 
-pub async fn get_samples(html: &Html) -> Result<(Vec<String>, Vec<String>)> {
+pub fn get_samples(html: &Html) -> Result<(Vec<String>, Vec<String>)> {
     let mut sample_inputs = Vec::new();
     let mut sample_outputs = Vec::new();
 
-    let section_selector = Selector::parse("section").unwrap();
-    let h3_selector = Selector::parse("h3").unwrap();
-    let pre_selector = Selector::parse("pre").unwrap();
+    let section_selector = lazy_selector!("section");
+    let h3_selector = lazy_selector!("h3");
+    let pre_selector = lazy_selector!("pre");
 
-    for section_elem in html.select(&section_selector) {
-        let Some(h3_elem) = section_elem.select(&h3_selector).next() else {
+    for section_elem in html.select(section_selector) {
+        let Some(h3_elem) = section_elem.select(h3_selector).next() else {
             continue;
         };
         let h3_text = h3_elem.inner_html();
         let h3_text = h3_text.trim();
         if h3_text.starts_with("入力例") {
-            let Some(pre_elem) = section_elem.select(&pre_selector).next() else {
+            let Some(pre_elem) = section_elem.select(pre_selector).next() else {
                 continue;
             };
             let pre_text = pre_elem.inner_html();
             sample_inputs.push(pre_text);
         } else if h3_text.starts_with("出力例") {
-            let Some(pre_elem) = section_elem.select(&pre_selector).next() else {
+            let Some(pre_elem) = section_elem.select(pre_selector).next() else {
                 continue;
             };
             let pre_text = pre_elem.inner_html();
@@ -160,7 +171,7 @@ pub async fn set_task_crate(
     fs::write(task_dir.join("src/main.rs"), &template_file_text).await?;
 
     let create_files = async {
-        let (sample_inputs, sample_outputs) = get_samples(task_page_html).await?;
+        let (sample_inputs, sample_outputs) = get_samples(task_page_html)?;
 
         fs::create_dir_all(&samples_dir).await?;
         for (i, (sample_in, sample_out)) in iter::zip(&sample_inputs, &sample_outputs).enumerate() {
@@ -179,10 +190,10 @@ pub async fn set_task_crate(
 }
 
 async fn get_csrf_token(html: &Html) -> Result<String> {
-    let csrf_selector = Selector::parse("input[name=csrf_token]").unwrap();
+    let csrf_selector = lazy_selector!("input[name=csrf_token]");
 
     let csrf_token = html
-        .select(&csrf_selector)
+        .select(csrf_selector)
         .next()
         .context("could not find csrf_token")?
         .attr("value")
