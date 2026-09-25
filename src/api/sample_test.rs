@@ -21,7 +21,7 @@ enum TestResult {
 }
 
 fn is_correct(out: &str, correct: &str) -> bool {
-    let decimal_pattern = lazy_regex!(r#"^\d+\.\d+$"#);
+    let decimal_pattern = lazy_regex!(r#"^-?\d+\.\d+$"#);
 
     if decimal_pattern.is_match(out) {
         let out: f64 = out.parse().unwrap();
