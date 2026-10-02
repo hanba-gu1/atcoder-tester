@@ -1,15 +1,14 @@
-use std::{
-    env::current_dir,
-    fs,
-    process::{self, Stdio},
-};
+use std::env::current_dir;
 
-use anyhow::{Context as _, Result, ensure};
+use anyhow::{Context, Result, anyhow, ensure};
 
 use crate::api::{
     config::{Config, Contest},
     contest::specify_task,
-    sample_test::sample_test,
+    sample_test::{
+        build_for_test, display_all_test_results, get_all_samples, get_sample, sample_test,
+        test_all_sample,
+    },
 };
 
 #[derive(Debug, clap::Args)]
@@ -32,55 +31,20 @@ impl Test {
         let task_dir = contest_dir.join(&task.name);
 
         if !self.no_build {
-            let build_output = process::Command::new("cargo")
-                .args([
-                    "build",
-                    "--package",
-                    &format!("{}-{}", contest_data.name, task.name),
-                ])
-                .current_dir(&root_dir)
-                .stderr(Stdio::inherit())
-                .output()
-                .context("failed to build")?;
-            ensure!(build_output.status.success(), "falied to build");
+            build_for_test(&root_dir, &contest_data, task)?;
         }
 
         if let Some(sample_number) = self.sample {
-            let in_file = task_dir.join(format!("samples/{sample_number}.in"));
-            let out_file = task_dir.join(format!("samples/{sample_number}.out"));
-            ensure!(in_file.exists(), "sample doesn't exist");
+            let (sample_in, sample_out) = get_sample(&task_dir, sample_number)?
+                .with_context(|| anyhow!("Sample {sample_number} doesn't exist."))?;
 
-            let sample_in = fs::read_to_string(&in_file)?;
-            let sample_out = fs::read_to_string(&out_file)?;
-
-            sample_test(
-                &contest_dir,
-                &contest_data,
-                task,
-                sample_number,
-                &sample_in,
-                &sample_out,
-            )?;
+            sample_test(&contest_dir, &contest_data, task, &sample_in, &sample_out)?;
         } else {
-            for i in 1.. {
-                let in_file = task_dir.join(format!("samples/{i}.in"));
-                let out_file = task_dir.join(format!("samples/{i}.out"));
-                if !in_file.exists() {
-                    break;
-                }
-
-                let sample_in = fs::read_to_string(&in_file)?;
-                let sample_out = fs::read_to_string(&out_file)?;
-
-                sample_test(
-                    &contest_dir,
-                    &contest_data,
-                    task,
-                    i,
-                    &sample_in,
-                    &sample_out,
-                )?;
-            }
+            let samples = get_all_samples(&task_dir)?;
+            ensure!(!samples.is_empty(), "No sample testcase was found.");
+            let (all_ac, results) = test_all_sample(&contest_dir, &contest_data, task, &samples)?;
+            display_all_test_results(&samples, &results)?;
+            ensure!(all_ac, "Some sample testcases was not passed.");
         }
 
         Ok(())

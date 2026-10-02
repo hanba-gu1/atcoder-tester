@@ -1,17 +1,14 @@
-use std::{
-    env::current_dir,
-    fs,
-    process::{self, Stdio},
-};
+use std::env::current_dir;
 
-use anyhow::{Context as _, Result, ensure};
+use anyhow::{Result, ensure};
+use dialoguer::{Confirm, theme::ColorfulTheme};
 
 use crate::api::{
     config::{Config, Contest},
     contest::{specify_task, submit_code},
     expand_files::expand_files,
     http::build_client,
-    sample_test::sample_test,
+    sample_test::{build_for_test, display_all_test_results, get_all_samples, test_all_sample},
 };
 
 #[derive(Debug, clap::Args)]
@@ -34,52 +31,32 @@ impl Submit {
 
         let task_dir = contest_dir.join(&task.name);
 
-        let mut all_ac = true;
-
         if !self.no_test && config.submit.sample_test {
-            if !self.no_build {
-                let build_output = process::Command::new("cargo")
-                    .args([
-                        "build",
-                        "--package",
-                        &format!("{}-{}", contest_data.name, task.name),
-                    ])
-                    .current_dir(&root_dir)
-                    .stderr(Stdio::inherit())
-                    .output()
-                    .context("failed to build")?;
-                ensure!(build_output.status.success(), "falied to build");
-            }
+            let samples = get_all_samples(&task_dir)?;
 
-            for i in 1.. {
-                let in_file = task_dir.join(format!("samples/{i}.in"));
-                let out_file = task_dir.join(format!("samples/{i}.out"));
-                if !in_file.exists() {
-                    break;
+            if samples.is_empty() {
+                let proceed = Confirm::with_theme(&ColorfulTheme::default())
+                    .with_prompt("No sample testcase was found. Do you want to submit?")
+                    .default(true)
+                    .interact()?;
+                ensure!(proceed, "Canceled submit.");
+            } else {
+                if !self.no_build {
+                    build_for_test(&root_dir, &contest_data, task)?;
                 }
-
-                let sample_in = fs::read_to_string(&in_file)?;
-                let sample_out = fs::read_to_string(&out_file)?;
-
-                all_ac &= sample_test(
-                    &contest_dir,
-                    &contest_data,
-                    task,
-                    i,
-                    &sample_in,
-                    &sample_out,
-                )?;
+                let (all_ac, results) =
+                    test_all_sample(&contest_dir, &contest_data, task, &samples)?;
+                display_all_test_results(&samples, &results)?;
+                ensure!(all_ac, "Some sample testcases was not passed.");
             }
         }
 
-        if all_ac {
-            let code = expand_files(
-                &task_dir.join("src/main.rs"),
-                &root_dir.join(&config.libs.path),
-            )?;
-            submit_code(&client, &contest_data.name, &task.name, code).await?;
-            eprintln!("Submit!");
-        }
+        let code = expand_files(
+            &task_dir.join("src/main.rs"),
+            &root_dir.join(&config.libs.path),
+        )?;
+        submit_code(&client, &contest_data.name, &task.name, code).await?;
+        eprintln!("Submit!");
 
         Ok(())
     }
