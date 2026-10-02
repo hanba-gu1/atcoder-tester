@@ -1,6 +1,6 @@
 use std::env::current_dir;
 
-use anyhow::{Context, Result, anyhow, ensure};
+use anyhow::{Context, Result, ensure};
 
 use crate::api::{
     config::{Config, Contest},

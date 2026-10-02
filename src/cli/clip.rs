@@ -38,7 +38,8 @@ impl Clip {
                 if !self.no_build {
                     build_for_test(&root_dir, &contest_data, task)?;
                 }
-                let (all_ac, results) = test_all_sample(&contest_dir, &contest_data, task, &samples)?;
+                let (all_ac, results) =
+                    test_all_sample(&contest_dir, &contest_data, task, &samples)?;
                 display_all_test_results(&samples, &results)?;
                 if !all_ac {
                     clipboard.set_text("")?;
