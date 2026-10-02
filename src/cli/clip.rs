@@ -32,17 +32,20 @@ impl Clip {
         let task_dir = contest_dir.join(&task.name);
 
         if !self.no_test && config.clip.sample_test {
-            if !self.no_build {
-                build_for_test(&root_dir, &contest_data, task)?;
-            }
-
             let samples = get_all_samples(&task_dir)?;
 
-            let (all_ac, results) = test_all_sample(&contest_dir, &contest_data, task, &samples)?;
-            display_all_test_results(&samples, &results)?;
-            if !all_ac {
-                clipboard.set_text("")?;
-                bail!("Some sample testcases wasn't passed.");
+            if !samples.is_empty() {
+                if !self.no_build {
+                    build_for_test(&root_dir, &contest_data, task)?;
+                }
+                let (all_ac, results) = test_all_sample(&contest_dir, &contest_data, task, &samples)?;
+                display_all_test_results(&samples, &results)?;
+                if !all_ac {
+                    clipboard.set_text("")?;
+                    bail!("Some sample testcases wasn't passed.");
+                }
+            } else {
+                eprintln!("No sample testcase was found.");
             }
         }
 

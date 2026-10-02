@@ -30,18 +30,20 @@ impl Test {
 
         let task_dir = contest_dir.join(&task.name);
 
-        if !self.no_build {
-            build_for_test(&root_dir, &contest_data, task)?;
-        }
-
         if let Some(sample_number) = self.sample {
             let (sample_in, sample_out) = get_sample(&task_dir, sample_number)?
-                .with_context(|| anyhow!("Sample {sample_number} doesn't exist."))?;
+                .with_context(|| format!("Sample {sample_number} doesn't exist."))?;
 
+            if !self.no_build {
+                build_for_test(&root_dir, &contest_data, task)?;
+            }
             sample_test(&contest_dir, &contest_data, task, &sample_in, &sample_out)?;
         } else {
             let samples = get_all_samples(&task_dir)?;
             ensure!(!samples.is_empty(), "No sample testcase was found.");
+            if !self.no_build {
+                build_for_test(&root_dir, &contest_data, task)?;
+            }
             let (all_ac, results) = test_all_sample(&contest_dir, &contest_data, task, &samples)?;
             display_all_test_results(&samples, &results)?;
             ensure!(all_ac, "Some sample testcases was not passed.");
