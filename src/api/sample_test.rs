@@ -52,7 +52,7 @@ pub fn get_all_samples(task_dir: &Path) -> Result<Vec<(String, String)>> {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum TestResultType {
+pub enum TestStaus {
     Ac,
     Wa,
     Re,
@@ -61,7 +61,7 @@ pub enum TestResultType {
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct TestResult {
-    pub result_type: TestResultType,
+    pub status: TestStaus,
     pub output: Output,
     pub exec_time: Duration,
 }
@@ -141,18 +141,18 @@ pub fn sample_test(
 
     let (is_tle, output, exec_time) = run_test(&exec_file, sample_in)?;
 
-    let result = if is_tle {
-        TestResultType::Tle
+    let status = if is_tle {
+        TestStaus::Tle
     } else if !output.status.success() {
-        TestResultType::Re
+        TestStaus::Re
     } else if is_correct_all(&output.stdout, sample_out) {
-        TestResultType::Ac
+        TestStaus::Ac
     } else {
-        TestResultType::Wa
+        TestStaus::Wa
     };
 
     Ok(TestResult {
-        result_type: result,
+        status,
         output,
         exec_time,
     })
@@ -164,11 +164,11 @@ pub fn display_test_result(
     sample_out: &str,
     result: &TestResult,
 ) -> Result<()> {
-    let result_text = match result.result_type {
-        TestResultType::Ac => "AC".on_green(),
-        TestResultType::Wa => "wA".on_yellow(),
-        TestResultType::Re => "RE".on_yellow(),
-        TestResultType::Tle => "TLE".on_yellow(),
+    let result_text = match result.status {
+        TestStaus::Ac => "AC".on_green(),
+        TestStaus::Wa => "wA".on_yellow(),
+        TestStaus::Re => "RE".on_yellow(),
+        TestStaus::Tle => "TLE".on_yellow(),
     };
 
     eprintln!("-----------------------------------------");
@@ -210,7 +210,7 @@ pub fn test_all_sample(
     let mut all_ac = true;
     for (sample_in, sample_out) in samples {
         let result = sample_test(contest_dir, contest_data, task, sample_in, sample_out)?;
-        all_ac &= result.result_type == TestResultType::Ac;
+        all_ac &= result.status == TestStaus::Ac;
         ret.push(result);
     }
     Ok((all_ac, ret))
