@@ -69,12 +69,12 @@ pub struct TestResult {
 fn is_correct(out: &str, correct: &str) -> bool {
     const DICIMAL_ERROR_MARGIN: f64 = 1e-6;
 
-    if let (Ok(out), Ok(correct)) = (out.parse::<i64>(), correct.parse::<i64>()) {
+    if let (Ok(out), Ok(correct)) = (out.parse::<i128>(), correct.parse::<i128>()) {
         out == correct
     } else if let (Ok(out), Ok(correct)) = (out.parse::<f64>(), correct.parse::<f64>()) {
         let abs_error = (out - correct).abs();
         abs_error < DICIMAL_ERROR_MARGIN
-            || (correct != 0.0 && abs_error / correct < DICIMAL_ERROR_MARGIN)
+            || (correct != 0.0 && abs_error / correct.abs() < DICIMAL_ERROR_MARGIN)
     } else {
         out == correct
     }
