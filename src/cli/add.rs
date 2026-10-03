@@ -21,7 +21,7 @@ impl Add {
         let client = build_client()?;
 
         let contest_dir = root_dir.join(&self.contest);
-        ensure!(contest_dir.join("contest.json").exists(), "contest.json is already exists.");
+        ensure!(!contest_dir.join("contest.json").exists(), "contest.json is already exists.");
         fs::create_dir_all(&contest_dir).await?;
 
         let tasks_page_url = Url::parse(&format!(
