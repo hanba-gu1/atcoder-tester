@@ -1,13 +1,8 @@
 use std::{
-    fs,
-    io::{Write as _, stderr},
-    path::Path,
-    process::{self, Output, Stdio},
-    thread,
-    time::{Duration, Instant},
+    fs, io::{Write as _, stderr}, path::Path, process::{self, Output, Stdio}, sync::Arc, thread, time::{Duration, Instant},
 };
 
-use anyhow::{Context as _, Result, ensure};
+use anyhow::{Context as _, Result, anyhow, ensure};
 use colored::Colorize;
 
 use crate::api::config::{Contest, Task};
@@ -205,13 +200,23 @@ pub fn test_all_sample(
     task: &Task,
     samples: &[(String, String)],
 ) -> Result<(bool, Vec<TestResult>)> {
-    let mut ret = Vec::new();
+    thread::scope(|s| {
+        let handles: Vec<_> = samples
+            .iter()
+            .map(|(sample_in, sample_out)| {
+                let test = move || sample_test(contest_dir, contest_data, task, sample_in, sample_out);
+                s.spawn(test)
+            })
+            .collect();
 
-    let mut all_ac = true;
-    for (sample_in, sample_out) in samples {
-        let result = sample_test(contest_dir, contest_data, task, sample_in, sample_out)?;
-        all_ac &= result.status == TestStaus::Ac;
-        ret.push(result);
-    }
-    Ok((all_ac, ret))
+        let mut ret = Vec::with_capacity(samples.len());
+        let mut all_ac = true;
+        for handle in handles {
+            let result = handle.join().map_err(|err| anyhow!("{err:?}"))??;
+            all_ac &= result.status == TestStaus::Ac;
+            ret.push(result);
+        }
+
+        Ok((all_ac, ret))
+    })
 }

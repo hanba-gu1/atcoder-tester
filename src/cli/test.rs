@@ -3,8 +3,11 @@ use std::env::current_dir;
 use anyhow::{Context, Result, ensure};
 
 use crate::api::{
-    config::{Config, Contest}, contest::specify_task, sample_test::{
-        TestStaus, build_for_test, display_all_test_results, display_test_result, get_all_samples, get_sample, sample_test, test_all_sample,
+    config::{Config, Contest},
+    contest::specify_task,
+    sample_test::{
+        TestStaus, build_for_test, display_all_test_results, display_test_result, get_all_samples,
+        get_sample, sample_test, test_all_sample,
     },
 };
 
@@ -36,7 +39,10 @@ impl Test {
             }
             let result = sample_test(&contest_dir, &contest_data, task, &sample_in, &sample_out)?;
             display_test_result(sample_number, &sample_in, &sample_out, &result)?;
-            ensure!(result.status == TestStaus::Ac, "Sample {sample_number} was not passed");
+            ensure!(
+                result.status == TestStaus::Ac,
+                "Sample {sample_number} was not passed"
+            );
         } else {
             let samples = get_all_samples(&task_dir)?;
             ensure!(!samples.is_empty(), "No sample testcase was found.");
