@@ -166,7 +166,7 @@ pub fn display_test_result(
 ) -> Result<()> {
     let result_text = match result.status {
         TestStaus::Ac => "AC".on_green(),
-        TestStaus::Wa => "wA".on_yellow(),
+        TestStaus::Wa => "WA".on_yellow(),
         TestStaus::Re => "RE".on_yellow(),
         TestStaus::Tle => "TLE".on_yellow(),
     };
