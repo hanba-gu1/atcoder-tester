@@ -3,7 +3,6 @@ use std::{
     io::{Write as _, stderr},
     path::Path,
     process::{self, Output, Stdio},
-    sync::Arc,
     thread,
     time::{Duration, Instant},
 };
@@ -159,6 +158,34 @@ pub fn sample_test(
     })
 }
 
+pub fn test_all_sample(
+    contest_dir: &Path,
+    contest_data: &Contest,
+    task: &Task,
+    samples: &[(String, String)],
+) -> Result<(bool, Vec<TestResult>)> {
+    thread::scope(|s| {
+        let handles: Vec<_> = samples
+            .iter()
+            .map(|(sample_in, sample_out)| {
+                let test =
+                    move || sample_test(contest_dir, contest_data, task, sample_in, sample_out);
+                s.spawn(test)
+            })
+            .collect();
+
+        let mut ret = Vec::with_capacity(samples.len());
+        let mut all_ac = true;
+        for handle in handles {
+            let result = handle.join().map_err(|err| anyhow!("{err:?}"))??;
+            all_ac &= result.status == TestStaus::Ac;
+            ret.push(result);
+        }
+
+        Ok((all_ac, ret))
+    })
+}
+
 pub fn display_test_result(
     sample_number: usize,
     sample_in: &str,
@@ -198,32 +225,4 @@ pub fn display_all_test_results(
         display_test_result(i + 1, sample_in, sample_out, result)?;
     }
     Ok(())
-}
-
-pub fn test_all_sample(
-    contest_dir: &Path,
-    contest_data: &Contest,
-    task: &Task,
-    samples: &[(String, String)],
-) -> Result<(bool, Vec<TestResult>)> {
-    thread::scope(|s| {
-        let handles: Vec<_> = samples
-            .iter()
-            .map(|(sample_in, sample_out)| {
-                let test =
-                    move || sample_test(contest_dir, contest_data, task, sample_in, sample_out);
-                s.spawn(test)
-            })
-            .collect();
-
-        let mut ret = Vec::with_capacity(samples.len());
-        let mut all_ac = true;
-        for handle in handles {
-            let result = handle.join().map_err(|err| anyhow!("{err:?}"))??;
-            all_ac &= result.status == TestStaus::Ac;
-            ret.push(result);
-        }
-
-        Ok((all_ac, ret))
-    })
 }
