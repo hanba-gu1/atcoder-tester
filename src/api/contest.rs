@@ -12,14 +12,11 @@ use crate::api::{
 };
 
 macro_rules! lazy_selector {
-    ($selector:expr) => {
-        {
-            static S: ::std::sync::LazyLock<::scraper::Selector> = ::std::sync::LazyLock::new(
-                || ::scraper::Selector::parse($selector).unwrap()
-            );
-            &*S
-        }
-    };
+    ($selector:expr) => {{
+        static S: ::std::sync::LazyLock<::scraper::Selector> =
+            ::std::sync::LazyLock::new(|| ::scraper::Selector::parse($selector).unwrap());
+        &S
+    }};
 }
 
 pub fn get_contest_title(html: &Html) -> Result<String> {
@@ -58,7 +55,7 @@ pub fn get_tasks_name_and_title(html: &Html) -> Result<Vec<(String, String)>> {
     Ok(tasks)
 }
 
-pub fn get_samples(html: &Html) -> Result<(Vec<String>, Vec<String>)> {
+pub fn download_samples(html: &Html) -> Result<(Vec<String>, Vec<String>)> {
     let mut sample_inputs = Vec::new();
     let mut sample_outputs = Vec::new();
 
@@ -71,23 +68,48 @@ pub fn get_samples(html: &Html) -> Result<(Vec<String>, Vec<String>)> {
             continue;
         };
         let h3_text = h3_elem.inner_html();
-        let h3_text = h3_text.trim();
-        if h3_text.starts_with("入力例") {
-            let Some(pre_elem) = section_elem.select(pre_selector).next() else {
-                continue;
-            };
+        let h3_text = h3_text.trim_start();
+        if h3_text.starts_with("入力例")
+            && let Some(pre_elem) = section_elem.select(pre_selector).next()
+        {
             let pre_text = pre_elem.inner_html();
             sample_inputs.push(pre_text);
-        } else if h3_text.starts_with("出力例") {
-            let Some(pre_elem) = section_elem.select(pre_selector).next() else {
-                continue;
-            };
+        } else if h3_text.starts_with("出力例")
+            && let Some(pre_elem) = section_elem.select(pre_selector).next()
+        {
             let pre_text = pre_elem.inner_html();
             sample_outputs.push(pre_text);
         }
     }
 
     Ok((sample_inputs, sample_outputs))
+}
+
+pub fn _get_input_constarins_and_format(html: &Html) -> (Option<String>, Option<String>) {
+    let section_selector = lazy_selector!("section");
+    let h3_selector = lazy_selector!("h3");
+    let pre_selector = lazy_selector!("pre");
+
+    let mut constrains = None;
+    let mut format = None;
+
+    for section_elem in html.select(section_selector) {
+        if let Some(h3_elem) = section_elem.select(h3_selector).next() {
+            let h3_text = h3_elem.inner_html();
+            let h3_text = h3_text.trim();
+            if h3_text == "制約"
+                && let Some(pre_elem) = section_elem.select(pre_selector).next()
+            {
+                constrains = Some(pre_elem.inner_html());
+            } else if h3_text == "入力"
+                && let Some(pre_elem) = section_elem.select(pre_selector).next()
+            {
+                format = Some(pre_elem.inner_html());
+            }
+        }
+    }
+
+    (constrains, format)
 }
 
 fn parse_selected_task(task: &str) -> Result<usize> {
@@ -171,7 +193,7 @@ pub async fn set_task_crate(
     fs::write(task_dir.join("src/main.rs"), &template_file_text).await?;
 
     let create_files = async {
-        let (sample_inputs, sample_outputs) = get_samples(task_page_html)?;
+        let (sample_inputs, sample_outputs) = download_samples(task_page_html)?;
 
         fs::create_dir_all(&samples_dir).await?;
         for (i, (sample_in, sample_out)) in iter::zip(&sample_inputs, &sample_outputs).enumerate() {

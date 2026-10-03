@@ -1,19 +1,13 @@
-use std::{
-    env::current_dir,
-    fs,
-    process::{self, Stdio},
-    thread::sleep,
-    time::Duration,
-};
+use std::{env::current_dir, thread::sleep, time::Duration};
 
-use anyhow::{Context as _, Result, ensure};
+use anyhow::{Result, bail};
 use arboard::Clipboard;
 
 use crate::api::{
     config::{Config, Contest},
     contest::specify_task,
     expand_files::expand_files,
-    sample_test::sample_test,
+    sample_test::{build_for_test, display_all_test_results, get_all_samples, test_all_sample},
 };
 
 #[derive(Debug, clap::Args)]
@@ -37,54 +31,31 @@ impl Clip {
 
         let task_dir = contest_dir.join(&task.name);
 
-        let mut all_ac = true;
-
         if !self.no_test && config.clip.sample_test {
-            if !self.no_build {
-                let build_output = process::Command::new("cargo")
-                    .args([
-                        "build",
-                        "--package",
-                        &format!("{}-{}", contest_data.name, task.name),
-                    ])
-                    .current_dir(&root_dir)
-                    .stderr(Stdio::inherit())
-                    .output()
-                    .context("failed to build")?;
-                ensure!(build_output.status.success(), "falied to build");
-            }
+            let samples = get_all_samples(&task_dir)?;
 
-            for i in 1.. {
-                let in_file = task_dir.join(format!("samples/{i}.in"));
-                let out_file = task_dir.join(format!("samples/{i}.out"));
-                if !in_file.exists() {
-                    break;
+            if !samples.is_empty() {
+                if !self.no_build {
+                    build_for_test(&root_dir, &contest_data, task)?;
                 }
-
-                let sample_in = fs::read_to_string(&in_file)?;
-                let sample_out = fs::read_to_string(&out_file)?;
-
-                all_ac &= sample_test(
-                    &contest_dir,
-                    &contest_data,
-                    task,
-                    i,
-                    &sample_in,
-                    &sample_out,
-                )?;
+                let (all_ac, results) =
+                    test_all_sample(&contest_dir, &contest_data, task, &samples)?;
+                display_all_test_results(&samples, &results)?;
+                if !all_ac {
+                    clipboard.set_text("")?;
+                    bail!("Some sample testcases wasn't passed.");
+                }
+            } else {
+                eprintln!("No sample testcase was found.");
             }
         }
 
-        if all_ac {
-            let result_file = expand_files(
-                &task_dir.join("src/main.rs"),
-                &root_dir.join(&config.libs.path),
-            )?;
-            clipboard.set_text(&result_file)?;
-            eprintln!("Clip!");
-        } else {
-            clipboard.set_text("")?;
-        }
+        let result_file = expand_files(
+            &task_dir.join("src/main.rs"),
+            &root_dir.join(&config.libs.path),
+        )?;
+        clipboard.set_text(&result_file)?;
+        eprintln!("Clip!");
 
         sleep(Duration::from_millis(200));
 
