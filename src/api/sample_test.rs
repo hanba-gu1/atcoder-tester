@@ -1,5 +1,11 @@
 use std::{
-    fs, io::{Write as _, stderr}, path::Path, process::{self, Output, Stdio}, sync::Arc, thread, time::{Duration, Instant},
+    fs,
+    io::{Write as _, stderr},
+    path::Path,
+    process::{self, Output, Stdio},
+    sync::Arc,
+    thread,
+    time::{Duration, Instant},
 };
 
 use anyhow::{Context as _, Result, anyhow, ensure};
@@ -204,7 +210,8 @@ pub fn test_all_sample(
         let handles: Vec<_> = samples
             .iter()
             .map(|(sample_in, sample_out)| {
-                let test = move || sample_test(contest_dir, contest_data, task, sample_in, sample_out);
+                let test =
+                    move || sample_test(contest_dir, contest_data, task, sample_in, sample_out);
                 s.spawn(test)
             })
             .collect();
