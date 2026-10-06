@@ -38,7 +38,7 @@ impl Test {
                 build_for_test(&root_dir, &contest_data, task)?;
             }
             let result = sample_test(&contest_dir, &contest_data, task, &sample_in, &sample_out)?;
-            display_test_result(sample_number, &sample_in, &sample_out, &result)?;
+            display_test_result(sample_number, &sample_in, &sample_out, &result);
             ensure!(
                 result.status == TestStaus::Ac,
                 "Sample {sample_number} was not passed"
@@ -50,7 +50,7 @@ impl Test {
                 build_for_test(&root_dir, &contest_data, task)?;
             }
             let (all_ac, results) = test_all_sample(&contest_dir, &contest_data, task, &samples)?;
-            display_all_test_results(&samples, &results)?;
+            display_all_test_results(&samples, &results);
             ensure!(all_ac, "Some sample testcases was not passed.");
         }
 
