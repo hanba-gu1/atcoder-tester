@@ -107,7 +107,7 @@ fn run_test(exec_file: &Path, input: &str) -> Result<(bool, Output, Duration)> {
         .context("failed to run")?;
     child
         .stdin
-        .as_mut()
+        .take()
         .context("failed to run")?
         .write_all(input.as_ref())
         .context("failed to run")?;
