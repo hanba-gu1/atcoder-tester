@@ -5,7 +5,7 @@ use crate::api::{
     contest::{get_contest_title, get_tasks_name_and_title, set_task_crate},
     http::{build_client, get_html},
 };
-use anyhow::{Context, Result};
+use anyhow::{Context, Result, ensure};
 use reqwest::Url;
 use tokio::fs;
 use toml_edit::{Array, DocumentMut, Item, Table, Value};
@@ -21,6 +21,10 @@ impl Add {
         let client = build_client()?;
 
         let contest_dir = root_dir.join(&self.contest);
+        ensure!(
+            !contest_dir.join("contest.json").exists(),
+            "contest.json is already exists."
+        );
         fs::create_dir_all(&contest_dir).await?;
 
         let tasks_page_url = Url::parse(&format!(

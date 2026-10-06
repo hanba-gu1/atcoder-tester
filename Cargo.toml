@@ -11,11 +11,9 @@ path = "src/main.rs"
 anyhow = "1.0.102"
 arboard = "3.6.1"
 clap = { version = "4.6.1", features = ["derive"] }
-colored = "3.1.1"
-comfy-table = "8.0.1"
+crossterm = "0.29.0"
 dialoguer = "0.12.0"
 dirs = "6.0.0"
-futures = "0.3.32"
 percent-encoding = "2.3.2"
 prettyplease = "0.2.37"
 reqwest = { version = "0.13.3", features = ["cookies"] }
@@ -24,6 +22,8 @@ serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.149"
 syn = { version = "2.0.117", features = ["visit-mut"] }
 syn-file-expand = "0.3.0"
+terminal_size = "0.4.4"
 tokio = { version = "1.52.2", features = ["full"] }
 toml = "1.1.2"
 toml_edit = "0.25.11"
+unicode-width = "0.2.2"
