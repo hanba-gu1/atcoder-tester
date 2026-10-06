@@ -1,6 +1,8 @@
+mod display;
+
 use std::{
     fs,
-    io::{Write as _, stderr},
+    io::Write as _,
     path::Path,
     process::{self, Output, Stdio},
     thread,
@@ -8,9 +10,10 @@ use std::{
 };
 
 use anyhow::{Context as _, Result, anyhow, ensure};
-use colored::Colorize;
+use crossterm::style::Stylize as _;
 
 use crate::api::config::{Contest, Task};
+use display::Window;
 
 pub fn build_for_test(root_dir: &Path, contest_data: &Contest, task: &Task) -> Result<()> {
     let build_output = process::Command::new("cargo")
@@ -192,27 +195,37 @@ pub fn display_test_result(
     sample_out: &str,
     result: &TestResult,
 ) -> Result<()> {
-    let result_text = match result.status {
+    let status_text = match result.status {
         TestStaus::Ac => "AC".on_green(),
         TestStaus::Wa => "WA".on_yellow(),
         TestStaus::Re => "RE".on_yellow(),
         TestStaus::Tle => "TLE".on_yellow(),
     };
 
-    eprintln!("-----------------------------------------");
-    eprintln!("Sample{sample_number} ... {result_text}");
-    eprintln!("Standard input:");
-    eprintln!("{sample_in}");
-    eprintln!("---------------");
-    eprintln!("Standard output:");
-    stderr().write_all(&result.output.stdout)?;
-    eprintln!("---------------");
-    eprintln!("Expected output:");
-    eprintln!("{sample_out}");
-    eprintln!("---------------");
-    eprintln!("Standard error:");
-    stderr().write_all(&result.output.stderr)?;
-    eprintln!("-----------------------------------------");
+    let width = terminal_size::terminal_size()
+        .map(|(w, _)| w.0 as usize)
+        .unwrap_or(20);
+
+    eprintln!(
+        "Sample{sample_number} Status {status_text}   Exec time {} ms",
+        result.exec_time.as_millis()
+    );
+    let expected_window = Window::new("Expected Output", sample_out);
+    let stdin_window = Window::new("Standard Input", sample_in);
+    Window::horizontal_print(&[expected_window, stdin_window], width);
+    let stdout_window = Window::new(
+        "Standard Output",
+        String::from_utf8_lossy(&result.output.stdout),
+    );
+    if result.output.stderr.is_empty() {
+        stdout_window.print(width);
+    } else {
+        let stderr_window = Window::new(
+            "Standard Error",
+            String::from_utf8_lossy(&result.output.stderr),
+        );
+        Window::horizontal_print(&[stdout_window, stderr_window], width);
+    }
 
     Ok(())
 }
