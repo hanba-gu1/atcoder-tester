@@ -72,9 +72,9 @@ pub struct TestResult {
 fn is_correct(out: &str, correct: &str) -> bool {
     const DICIMAL_ERROR_MARGIN: f64 = 1e-6;
 
-    if let (Ok(out), Ok(correct)) = (out.parse::<i128>(), correct.parse::<i128>()) {
-        out == correct
-    } else if let (Ok(out), Ok(correct)) = (out.parse::<f64>(), correct.parse::<f64>()) {
+    if (out.contains('.') || correct.contains('.'))
+        && let (Ok(out), Ok(correct)) = (out.parse::<f64>(), correct.parse::<f64>())
+    {
         let abs_error = (out - correct).abs();
         abs_error < DICIMAL_ERROR_MARGIN
             || (correct != 0.0 && abs_error / correct.abs() < DICIMAL_ERROR_MARGIN)
@@ -238,4 +238,50 @@ pub fn display_all_test_results(
         display_test_result(i + 1, sample_in, sample_out, result)?;
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod test {
+    use crate::api::sample_test::is_correct;
+
+    #[test]
+    fn sample_correct_test() {
+        let correct_pairs = [
+            ("0", "0"),
+            ("250", "250"),
+            ("-300", "-300"),
+            ("0.000001", "0.0000019"),
+            ("-0.0000004", "0.0000004"),
+            (
+                "1000000000000000000000000000000000000000",
+                "1000000000000000000000000000000000000000",
+            ),
+            ("10000005.0", "10000000.0"),
+            ("ABC", "ABC"),
+            ("!a^X++*];oewf^3", "!a^X++*];oewf^3"),
+        ];
+        for p in correct_pairs {
+            assert!(is_correct(p.0, p.1), "{p:?}");
+        }
+    }
+    #[test]
+    fn sample_incorrect_test() {
+        let incorrect_pairs = [
+            ("0", "1"),
+            ("250", "249"),
+            ("-301", "-300"),
+            ("0.000001", "0.000002"),
+            ("-0.0000005", "0.0000005"),
+            (
+                "1000000000000000000000000000000000000000",
+                "1000000000000000000000000000000000000001",
+            ),
+            ("10000010.0", "10000000.0"),
+            ("ABC", "ABD"),
+            ("!a^X+++];oewf^3", "!a^X++*];oewf^3"),
+        ];
+        for p in incorrect_pairs {
+            assert!(!is_correct(p.0, p.1), "{p:?}");
+        }
+    }
 }
