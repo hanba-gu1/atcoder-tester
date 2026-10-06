@@ -82,8 +82,8 @@ fn is_correct(out: &str, correct: &str) -> bool {
         && let (Ok(out), Ok(correct)) = (out.parse::<f64>(), correct.parse::<f64>())
     {
         let abs_error = (out - correct).abs();
-        abs_error < DICIMAL_ERROR_MARGIN
-            || (correct != 0.0 && abs_error / correct.abs() < DICIMAL_ERROR_MARGIN)
+        let rel_error = abs_error / correct.abs();
+        abs_error.min(rel_error) < DICIMAL_ERROR_MARGIN
     } else {
         out == correct
     }
