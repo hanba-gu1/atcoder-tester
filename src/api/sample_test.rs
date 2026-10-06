@@ -121,7 +121,7 @@ fn run_test(exec_file: &Path, input: &str) -> Result<(bool, Output, Duration)> {
                 child.kill()?;
                 break true;
             }
-            None => thread::sleep(Duration::from_millis(20)),
+            None => thread::sleep(Duration::from_millis(1)),
         }
     };
     let exec_time = start_time.elapsed();
@@ -196,18 +196,18 @@ pub fn display_test_result(
     result: &TestResult,
 ) -> Result<()> {
     let status_text = match result.status {
-        TestStaus::Ac => "AC".on_green(),
-        TestStaus::Wa => "WA".on_yellow(),
-        TestStaus::Re => "RE".on_yellow(),
-        TestStaus::Tle => "TLE".on_yellow(),
+        TestStaus::Ac => " AC ".on_green().bold(),
+        TestStaus::Wa => " WA ".on_yellow().bold(),
+        TestStaus::Re => " RE ".on_yellow().bold(),
+        TestStaus::Tle => " TLE ".on_yellow().bold(),
     };
 
     let width = terminal_size::terminal_size()
-        .map(|(w, _)| w.0 as usize)
-        .unwrap_or(20);
+        .map(|(w, _)| (w.0 as usize * 2 / 2 - 1).min(127))
+        .unwrap_or(127);
 
     eprintln!(
-        "Sample{sample_number} Status {status_text}   Exec time {} ms",
+        "Sample{sample_number}    {status_text}   {} ms",
         result.exec_time.as_millis()
     );
     let expected_window = Window::new("Expected Output", sample_out);
