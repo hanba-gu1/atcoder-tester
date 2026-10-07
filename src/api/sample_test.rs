@@ -80,6 +80,8 @@ fn is_correct(out: &str, correct: &str) -> bool {
 
     if correct.contains('.')
         && let (Ok(out), Ok(correct)) = (out.parse::<f64>(), correct.parse::<f64>())
+        && out.is_normal()
+        && correct.is_normal()
     {
         let abs_error = (out - correct).abs();
         let rel_error = abs_error / correct.abs();
