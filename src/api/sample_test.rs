@@ -9,12 +9,14 @@ use std::{
     time::{Duration, Instant},
 };
 
-use anyhow::{Context as _, Result, anyhow, ensure};
+use anyhow::{Context as _, Result, anyhow};
 use crossterm::style::Stylize as _;
+use hooq::hooq;
 
 use crate::api::config::{Contest, Task};
 use display::Window;
 
+#[hooq(anyhow)]
 pub fn build_for_test(root_dir: &Path, contest_data: &Contest, task: &Task) -> Result<()> {
     let build_output = process::Command::new("cargo")
         .args([
@@ -24,12 +26,15 @@ pub fn build_for_test(root_dir: &Path, contest_data: &Contest, task: &Task) -> R
         ])
         .current_dir(root_dir)
         .stderr(Stdio::inherit())
-        .output()
-        .context("failed to build")?;
-    ensure!(build_output.status.success(), "falied to build");
-    Ok(())
+        .output()?;
+    if build_output.status.success() {
+        Ok(())
+    } else {
+        Err(anyhow!("falied to build"))
+    }
 }
 
+#[hooq(anyhow)]
 pub fn get_sample(task_dir: &Path, sample_number: usize) -> Result<Option<(String, String)>> {
     let sample_in_file = task_dir.join(format!("samples/{sample_number}.in"));
     let sample_out_file = task_dir.join(format!("samples/{sample_number}.out"));
@@ -42,6 +47,7 @@ pub fn get_sample(task_dir: &Path, sample_number: usize) -> Result<Option<(Strin
     })
 }
 
+#[hooq(anyhow)]
 pub fn get_all_samples(task_dir: &Path) -> Result<Vec<(String, String)>> {
     let mut samples = Vec::new();
     for i in 1.. {
@@ -72,12 +78,14 @@ pub struct TestResult {
 fn is_correct(out: &str, correct: &str) -> bool {
     const DICIMAL_ERROR_MARGIN: f64 = 1e-6;
 
-    if (out.contains('.') || correct.contains('.'))
+    if correct.contains('.')
         && let (Ok(out), Ok(correct)) = (out.parse::<f64>(), correct.parse::<f64>())
+        && out.is_finite()
+        && correct.is_finite()
     {
         let abs_error = (out - correct).abs();
-        abs_error < DICIMAL_ERROR_MARGIN
-            || (correct != 0.0 && abs_error / correct.abs() < DICIMAL_ERROR_MARGIN)
+        let rel_error = abs_error / correct.abs();
+        abs_error.min(rel_error) < DICIMAL_ERROR_MARGIN
     } else {
         out == correct
     }
@@ -98,19 +106,14 @@ fn is_correct_all(out: &[u8], correct: &str) -> bool {
             .all(|(out, correct)| is_correct(out, correct))
 }
 
+#[hooq(anyhow)]
 fn run_test(exec_file: &Path, input: &str) -> Result<(bool, Output, Duration)> {
     let mut child = process::Command::new(exec_file)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
-        .spawn()
-        .context("failed to run")?;
-    child
-        .stdin
-        .as_mut()
-        .context("failed to run")?
-        .write_all(input.as_ref())
-        .context("failed to run")?;
+        .spawn()?;
+    child.stdin.take()?.write_all(input.as_ref())?;
 
     let start_time = Instant::now();
     let timeout = Duration::from_secs(6);
@@ -130,6 +133,7 @@ fn run_test(exec_file: &Path, input: &str) -> Result<(bool, Output, Duration)> {
     Ok((is_tle, output, exec_time))
 }
 
+#[hooq(anyhow)]
 pub fn sample_test(
     contest_dir: &Path,
     contest_data: &Contest,
@@ -161,13 +165,14 @@ pub fn sample_test(
     })
 }
 
+#[hooq(anyhow)]
 pub fn test_all_sample(
     contest_dir: &Path,
     contest_data: &Contest,
     task: &Task,
     samples: &[(String, String)],
 ) -> Result<(bool, Vec<TestResult>)> {
-    thread::scope(|s| {
+    thread::scope(|s| -> Result<_> {
         let handles: Vec<_> = samples
             .iter()
             .map(|(sample_in, sample_out)| {
@@ -194,7 +199,7 @@ pub fn display_test_result(
     sample_in: &str,
     sample_out: &str,
     result: &TestResult,
-) -> Result<()> {
+) {
     let status_text = match result.status {
         TestStaus::Ac => " AC ".on_green().bold(),
         TestStaus::Wa => " WA ".on_yellow().bold(),
@@ -210,34 +215,28 @@ pub fn display_test_result(
         "Sample{sample_number}    {status_text}   {} ms",
         result.exec_time.as_millis()
     );
-    let expected_window = Window::new("Expected Output", sample_out);
     let stdin_window = Window::new("Standard Input", sample_in);
-    Window::horizontal_print(&[expected_window, stdin_window], width);
-    let stdout_window = Window::new(
-        "Standard Output",
-        String::from_utf8_lossy(&result.output.stdout),
-    );
     if result.output.stderr.is_empty() {
-        stdout_window.print(width);
+        stdin_window.print(width);
     } else {
         let stderr_window = Window::new(
             "Standard Error",
             String::from_utf8_lossy(&result.output.stderr),
         );
-        Window::horizontal_print(&[stdout_window, stderr_window], width);
+        Window::horizontal_print(&[stdin_window, stderr_window], width);
     }
-
-    Ok(())
+    let expected_window = Window::new("Expected Output", sample_out);
+    let stdout_window = Window::new(
+        "Standard Output",
+        String::from_utf8_lossy(&result.output.stdout),
+    );
+    Window::horizontal_print(&[expected_window, stdout_window], width);
 }
 
-pub fn display_all_test_results(
-    samples: &[(String, String)],
-    results: &[TestResult],
-) -> Result<()> {
+pub fn display_all_test_results(samples: &[(String, String)], results: &[TestResult]) {
     for (i, ((sample_in, sample_out), result)) in samples.iter().zip(results).enumerate() {
-        display_test_result(i + 1, sample_in, sample_out, result)?;
+        display_test_result(i + 1, sample_in, sample_out, result);
     }
-    Ok(())
 }
 
 #[cfg(test)]
@@ -258,6 +257,9 @@ mod test {
             ),
             ("10000005.0", "10000000.0"),
             ("ABC", "ABC"),
+            ("inf", "inf"),
+            ("-inf", "-inf"),
+            ("NaN", "NaN"),
             ("!a^X++*];oewf^3", "!a^X++*];oewf^3"),
         ];
         for p in correct_pairs {
@@ -278,6 +280,10 @@ mod test {
             ),
             ("10000010.0", "10000000.0"),
             ("ABC", "ABD"),
+            ("inf", "-inf"),
+            ("-inf", "inf"),
+            ("NaN", "0.1"),
+            ("0.1", "NaN"),
             ("!a^X+++];oewf^3", "!a^X++*];oewf^3"),
         ];
         for p in incorrect_pairs {
