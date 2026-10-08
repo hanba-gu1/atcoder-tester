@@ -257,6 +257,9 @@ mod test {
             ),
             ("10000005.0", "10000000.0"),
             ("ABC", "ABC"),
+            ("inf", "inf"),
+            ("-inf", "-inf"),
+            ("NaN", "NaN"),
             ("!a^X++*];oewf^3", "!a^X++*];oewf^3"),
         ];
         for p in correct_pairs {
@@ -277,6 +280,10 @@ mod test {
             ),
             ("10000010.0", "10000000.0"),
             ("ABC", "ABD"),
+            ("inf", "-inf"),
+            ("-inf", "inf"),
+            ("NaN", "0.1"),
+            ("0.1", "NaN"),
             ("!a^X+++];oewf^3", "!a^X++*];oewf^3"),
         ];
         for p in incorrect_pairs {
