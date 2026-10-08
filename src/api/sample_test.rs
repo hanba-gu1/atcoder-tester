@@ -215,22 +215,22 @@ pub fn display_test_result(
         "Sample{sample_number}    {status_text}   {} ms",
         result.exec_time.as_millis()
     );
-    let expected_window = Window::new("Expected Output", sample_out);
     let stdin_window = Window::new("Standard Input", sample_in);
-    Window::horizontal_print(&[expected_window, stdin_window], width);
-    let stdout_window = Window::new(
-        "Standard Output",
-        String::from_utf8_lossy(&result.output.stdout),
-    );
     if result.output.stderr.is_empty() {
-        stdout_window.print(width);
+        stdin_window.print(width);
     } else {
         let stderr_window = Window::new(
             "Standard Error",
             String::from_utf8_lossy(&result.output.stderr),
         );
-        Window::horizontal_print(&[stdout_window, stderr_window], width);
+        Window::horizontal_print(&[stdin_window, stderr_window], width);
     }
+    let expected_window = Window::new("Expected Output", sample_out);
+    let stdout_window = Window::new(
+        "Standard Output",
+        String::from_utf8_lossy(&result.output.stdout),
+    );
+    Window::horizontal_print(&[expected_window, stdout_window], width);
 }
 
 pub fn display_all_test_results(samples: &[(String, String)], results: &[TestResult]) {
