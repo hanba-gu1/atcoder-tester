@@ -3,8 +3,10 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use anyhow::{Context, Result, bail};
+use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
+
+use crate::ensure;
 
 pub const CONFIG_FILE_NAME: &str = "actester.toml";
 pub const CONTEST_DATA_FILE_NAME: &str = "contest.json";
@@ -31,12 +33,11 @@ impl Config {
                         .context(format!("failed to read `{CONFIG_FILE_NAME}`"))?,
                 )?;
             }
-            if !dir.pop() {
-                bail!(
-                    "could not find `{CONFIG_FILE_NAME}` in `{}` or any parent directory",
-                    dir.display()
-                );
-            }
+            ensure!(
+                dir.pop(),
+                "could not find `{CONFIG_FILE_NAME}` in `{}` or any parent directory",
+                dir.display()
+            );
         };
 
         Ok((dir, config))
@@ -92,12 +93,11 @@ impl Contest {
                 let contest_data = serde_json::from_slice::<Contest>(&content)?;
                 break contest_data;
             }
-            if !dir.pop() {
-                bail!(
-                    "could not find `{CONTEST_DATA_FILE_NAME}` in `{}` or any parent directory",
-                    dir.display()
-                );
-            }
+            ensure!(
+                dir.pop(),
+                "could not find `{CONTEST_DATA_FILE_NAME}` in `{}` or any parent directory",
+                dir.display()
+            );
         };
 
         Ok((dir, contest_data))

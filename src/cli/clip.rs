@@ -1,13 +1,17 @@
 use std::{env::current_dir, thread::sleep, time::Duration};
 
-use anyhow::{Result, bail};
+use anyhow::Result;
 use arboard::Clipboard;
+use hooq::hooq;
 
-use crate::api::{
-    config::{Config, Contest},
-    contest::specify_task,
-    expand_files::expand_files,
-    sample_test::{build_for_test, display_all_test_results, get_all_samples, test_all_sample},
+use crate::{
+    api::{
+        config::{Config, Contest},
+        contest::specify_task,
+        expand_files::expand_files,
+        sample_test::{build_for_test, display_all_test_results, get_all_samples, test_all_sample},
+    },
+    fail,
 };
 
 #[derive(Debug, clap::Args)]
@@ -19,6 +23,7 @@ pub struct Clip {
     no_build: bool,
 }
 
+#[hooq(anyhow)]
 impl Clip {
     pub fn clip(&self) -> Result<()> {
         let mut clipboard = Clipboard::new()?;
@@ -43,7 +48,7 @@ impl Clip {
                 display_all_test_results(&samples, &results);
                 if !all_ac {
                     clipboard.set_text("")?;
-                    bail!("Some sample testcases were not passed.");
+                    fail!("Some sample testcases were not passed.");
                 }
             } else {
                 eprintln!("No sample testcase was found.");

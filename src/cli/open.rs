@@ -1,10 +1,14 @@
-use std::{env::current_dir, ffi::OsStr, os::unix::ffi::OsStrExt, process::Command};
+use std::{env::current_dir, process::Command};
 
-use anyhow::{Context as _, Result, ensure};
+use anyhow::Result;
+use hooq::hooq;
 
-use crate::api::{
-    config::{Config, Contest},
-    contest::specify_task,
+use crate::{
+    api::{
+        config::{Config, Contest},
+        contest::specify_task,
+    },
+    ensure,
 };
 
 #[derive(Debug, clap::Args)]
@@ -12,6 +16,7 @@ pub struct Open {
     task: Option<String>,
 }
 
+#[hooq(anyhow)]
 impl Open {
     pub fn open(&self) -> Result<()> {
         let current_dir = current_dir()?;
@@ -33,13 +38,12 @@ impl Open {
             } else {
                 &command[1..]
             })
-            .output()
-            .context("failed to open file")?;
+            .output()?;
 
         ensure!(
             output.status.success(),
             "failed to open file\nstderr: {}",
-            OsStr::from_bytes(&output.stderr).display()
+            String::from_utf8_lossy(&output.stderr),
         );
 
         Ok(())

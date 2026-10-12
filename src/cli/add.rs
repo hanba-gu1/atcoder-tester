@@ -6,6 +6,7 @@ use crate::api::{
     http::{build_client, get_html},
 };
 use anyhow::{Context, Result, ensure};
+use hooq::hooq;
 use reqwest::Url;
 use tokio::fs;
 use toml_edit::{Array, DocumentMut, Item, Table, Value};
@@ -15,6 +16,7 @@ pub struct Add {
     contest: String,
 }
 
+#[hooq(anyhow)]
 impl Add {
     pub async fn add(&self) -> Result<()> {
         let (root_dir, config) = Config::read(&current_dir()?)?;

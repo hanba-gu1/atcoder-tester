@@ -13,7 +13,7 @@ use anyhow::{Context as _, Result, anyhow};
 use crossterm::style::Stylize as _;
 use hooq::hooq;
 
-use crate::api::config::{Contest, Task};
+use crate::{api::config::{Contest, Task}, ensure};
 use display::Window;
 
 #[hooq(anyhow)]
@@ -27,11 +27,8 @@ pub fn build_for_test(root_dir: &Path, contest_data: &Contest, task: &Task) -> R
         .current_dir(root_dir)
         .stderr(Stdio::inherit())
         .output()?;
-    if build_output.status.success() {
-        Ok(())
-    } else {
-        Err(anyhow!("falied to build"))
-    }
+    ensure!(build_output.status.success(), "failed to build");
+    Ok(())
 }
 
 #[hooq(anyhow)]
