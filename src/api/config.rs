@@ -99,7 +99,7 @@ impl Contest {
             ensure!(
                 reading_dir.pop(),
                 "could not find `{CONTEST_DATA_FILE_NAME}` in `{}` or any parent directory",
-                dir.display()
+                dir.display(),
             );
         };
 
