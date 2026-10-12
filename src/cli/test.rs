@@ -8,8 +8,8 @@ use crate::{
         config::{Config, Contest},
         contest::specify_task,
         sample_test::{
-            TestStaus, build_for_test, display_all_test_results, display_test_result, get_all_samples,
-            get_sample, sample_test, test_all_sample,
+            TestStaus, build_for_test, display_all_test_results, display_test_result,
+            get_all_samples, get_sample, sample_test, test_all_sample,
         },
     },
     ensure,
