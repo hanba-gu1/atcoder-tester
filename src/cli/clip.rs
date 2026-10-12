@@ -43,7 +43,7 @@ impl Clip {
                 display_all_test_results(&samples, &results);
                 if !all_ac {
                     clipboard.set_text("")?;
-                    bail!("Some sample testcases wasn't passed.");
+                    bail!("Some sample testcases were not passed.");
                 }
             } else {
                 eprintln!("No sample testcase was found.");

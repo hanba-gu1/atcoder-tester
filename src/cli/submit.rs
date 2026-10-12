@@ -47,7 +47,7 @@ impl Submit {
                 let (all_ac, results) =
                     test_all_sample(&contest_dir, &contest_data, task, &samples)?;
                 display_all_test_results(&samples, &results);
-                ensure!(all_ac, "Some sample testcases was not passed.");
+                ensure!(all_ac, "Some sample testcases were not passed.");
             }
         }
 
