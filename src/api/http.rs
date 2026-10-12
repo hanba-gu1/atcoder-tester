@@ -2,26 +2,26 @@ use std::{fs, sync::Arc};
 
 use anyhow::{Context, Result};
 use dirs::home_dir;
+use hooq::hooq;
 use reqwest::{Client, IntoUrl, Url, cookie::Jar};
 use scraper::Html;
 
+#[hooq(anyhow)]
 pub fn set_session_token(session_token: &str) -> Result<()> {
-    let actester_dir = home_dir().unwrap().join(".actester");
+    let actester_dir = home_dir()?.join(".actester");
     let session_token_file_path = actester_dir.join("session_token");
-    fs::create_dir_all(session_token_file_path.parent().unwrap())?;
+    fs::create_dir_all(session_token_file_path.parent()?)?;
     fs::write(session_token_file_path, session_token)?;
 
     Ok(())
 }
 
+#[hooq(anyhow)]
 fn read_session_token() -> Result<Option<String>> {
-    let actester_dir = home_dir().unwrap().join(".actester");
+    let actester_dir = home_dir()?.join(".actester");
     let session_token_file_path = actester_dir.join("session_token");
     let session_token = if session_token_file_path.exists() {
-        Some(
-            fs::read_to_string(session_token_file_path)
-                .context("failed to read session_token file")?,
-        )
+        Some(fs::read_to_string(session_token_file_path)?)
     } else {
         None
     };

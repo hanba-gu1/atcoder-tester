@@ -142,8 +142,7 @@ pub fn sample_test(
     sample_out: &str,
 ) -> Result<TestResult> {
     let exec_file = contest_dir
-        .parent()
-        .unwrap()
+        .parent()?
         .join(format!("target/debug/{}-{}", contest_data.name, task.name));
 
     let (is_tle, output, exec_time) = run_test(&exec_file, sample_in)?;
