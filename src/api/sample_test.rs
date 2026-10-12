@@ -241,7 +241,7 @@ pub fn display_all_test_results(samples: &[(String, String)], results: &[TestRes
 
 #[cfg(test)]
 mod test {
-    use crate::api::sample_test::is_correct;
+    use super::is_correct;
 
     #[test]
     fn sample_correct_test() {
