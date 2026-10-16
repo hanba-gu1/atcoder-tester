@@ -1,4 +1,6 @@
 use std::{fs, sync::Arc};
+#[cfg(target_os = "linux")]
+use std::os::unix::fs::PermissionsExt;
 
 use anyhow::{Context, Result};
 use dirs::home_dir;
@@ -10,8 +12,14 @@ use scraper::Html;
 pub fn set_session_token(session_token: &str) -> Result<()> {
     let actester_dir = home_dir()?.join(".actester");
     let session_token_file_path = actester_dir.join("session_token");
-    fs::create_dir_all(session_token_file_path.parent()?)?;
-    fs::write(session_token_file_path, session_token)?;
+    fs::create_dir_all(&actester_dir)?;
+    fs::write(&session_token_file_path, session_token)?;
+    #[cfg(target_os = "linux")]
+    {
+        let mut perm = fs::metadata(&session_token_file_path)?.permissions();
+        perm.set_mode(0o600);
+        fs::set_permissions(&session_token_file_path, perm)?;
+    }
 
     Ok(())
 }
@@ -20,11 +28,10 @@ pub fn set_session_token(session_token: &str) -> Result<()> {
 fn read_session_token() -> Result<Option<String>> {
     let actester_dir = home_dir()?.join(".actester");
     let session_token_file_path = actester_dir.join("session_token");
-    let session_token = if session_token_file_path.exists() {
-        Some(fs::read_to_string(session_token_file_path)?)
-    } else {
-        None
-    };
+    let session_token = session_token_file_path
+        .exists()
+        .then(|| fs::read_to_string(session_token_file_path))
+        .transpose()?;
 
     Ok(session_token)
 }
