@@ -1,15 +1,18 @@
 use std::{env::current_dir, iter, path::Path, time::Duration};
 
-use anyhow::{Context as _, Result, ensure};
+use anyhow::{Context as _, Result};
 use hooq::hooq;
 use percent_encoding::{NON_ALPHANUMERIC, utf8_percent_encode};
 use reqwest::{Client, Url};
 use scraper::Html;
 use tokio::{fs, join};
 
-use crate::api::{
-    config::{Config, Contest, Task},
-    http::get_html,
+use crate::{
+    api::{
+        config::{Config, Contest, Task},
+        http::get_html,
+    },
+    ensure, user_error,
 };
 
 macro_rules! lazy_selector {
@@ -20,14 +23,14 @@ macro_rules! lazy_selector {
     }};
 }
 
+#[hooq(anyhow)]
 pub fn get_contest_title(html: &Html) -> Result<String> {
     let contest_title_selector = lazy_selector!(".contest-title");
 
     let contest_title = html
         .select(contest_title_selector)
         .next()
-        .map(|elem| elem.inner_html().trim().to_string())
-        .context("failed to get contest title")?;
+        .map(|elem| elem.inner_html().trim().to_string())?;
 
     Ok(contest_title)
 }
@@ -118,25 +121,26 @@ fn parse_selected_task(task: &str) -> Result<usize> {
         .parse()
         .ok()
         .or_else(|| parse_task_num_from_enletter(task))
-        .context("task must be specified by number or alphabet")?;
+        .ok_or(user_error!("task must be specified by number or alphabet"))?;
 
     Ok(task)
 }
 
 fn parse_task_num_from_enletter(task: &str) -> Option<usize> {
     let task = task.trim().to_ascii_lowercase();
-    if !task.chars().all(|c| c.is_ascii_lowercase()) {
-        None?
-    }
+    task.chars()
+        .all(|c| c.is_ascii_lowercase())
+        .then(|| {
+            let mut ret = task.chars().next()? as usize - 97;
 
-    let mut ret = task.chars().next()? as usize - 97;
+            for c in task.chars().skip(1) {
+                let c = c as usize - 97;
+                ret = (ret + 1) * 26 + c;
+            }
 
-    for c in task.chars().skip(1) {
-        let c = c as usize - 97;
-        ret = (ret + 1) * 26 + c;
-    }
-
-    Some(ret + 1)
+            Some(ret + 1)
+        })
+        .flatten()
 }
 
 #[hooq(anyhow)]

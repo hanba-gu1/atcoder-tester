@@ -38,13 +38,13 @@ pub fn build_for_test(root_dir: &Path, contest_data: &Contest, task: &Task) -> R
 pub fn get_sample(task_dir: &Path, sample_number: usize) -> Result<Option<(String, String)>> {
     let sample_in_file = task_dir.join(format!("samples/{sample_number}.in"));
     let sample_out_file = task_dir.join(format!("samples/{sample_number}.out"));
-    Ok(if sample_in_file.is_file() && sample_out_file.is_file() {
-        let sample_in = fs::read_to_string(&sample_in_file)?;
-        let sample_out = fs::read_to_string(&sample_out_file)?;
-        Some((sample_in, sample_out))
-    } else {
-        None
-    })
+    (sample_in_file.is_file() && sample_out_file.is_file())
+        .then(|| -> Result<_> {
+            let sample_in = fs::read_to_string(&sample_in_file)?;
+            let sample_out = fs::read_to_string(&sample_out_file)?;
+            Ok((sample_in, sample_out))
+        })
+        .transpose()
 }
 
 #[hooq(anyhow)]

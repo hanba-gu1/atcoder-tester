@@ -1,6 +1,6 @@
-use std::{fs, sync::Arc};
 #[cfg(target_os = "linux")]
 use std::os::unix::fs::PermissionsExt;
+use std::{fs, sync::Arc};
 
 use anyhow::{Context, Result};
 use dirs::home_dir;
