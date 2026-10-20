@@ -6,6 +6,7 @@ use crate::api::{
     http::{build_client, get_html},
 };
 use anyhow::{Context, Result, ensure};
+use hooq::hooq;
 use reqwest::Url;
 use tokio::fs;
 use toml_edit::{Array, DocumentMut, Item, Table, Value};
@@ -15,6 +16,7 @@ pub struct Add {
     contest: String,
 }
 
+#[hooq(anyhow)]
 impl Add {
     pub async fn add(&self) -> Result<()> {
         let (root_dir, config) = Config::read(&current_dir()?)?;
@@ -84,16 +86,14 @@ impl Add {
         let workspace_members = workspace_toml
             .entry("workspace")
             .or_insert(Item::Table(Table::new()))
-            .as_table_mut()
-            .unwrap()
+            .as_table_mut()?
             .entry("members")
             .or_insert(Item::Value(Value::Array(Array::new())))
-            .as_array_mut()
-            .unwrap();
+            .as_array_mut()?;
         let members_set: HashSet<_> = workspace_members
             .iter()
-            .map(|member| member.as_str().unwrap().to_string())
-            .collect();
+            .map(|member| member.as_str().map(str::to_string))
+            .collect::<Option<_>>()?;
         workspace_members.extend(tasks.iter().filter_map(|(task, _)| {
             let task_dir = format!("{}/{}", contest_data.name, task);
             (!members_set.contains(&task_dir)).then_some(task_dir)

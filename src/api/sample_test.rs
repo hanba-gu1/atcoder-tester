@@ -13,7 +13,10 @@ use anyhow::{Context as _, Result, anyhow};
 use crossterm::style::Stylize as _;
 use hooq::hooq;
 
-use crate::api::config::{Contest, Task};
+use crate::{
+    api::config::{Contest, Task},
+    ensure,
+};
 use display::Window;
 
 #[hooq(anyhow)]
@@ -27,24 +30,21 @@ pub fn build_for_test(root_dir: &Path, contest_data: &Contest, task: &Task) -> R
         .current_dir(root_dir)
         .stderr(Stdio::inherit())
         .output()?;
-    if build_output.status.success() {
-        Ok(())
-    } else {
-        Err(anyhow!("falied to build"))
-    }
+    ensure!(build_output.status.success(), "failed to build");
+    Ok(())
 }
 
 #[hooq(anyhow)]
 pub fn get_sample(task_dir: &Path, sample_number: usize) -> Result<Option<(String, String)>> {
     let sample_in_file = task_dir.join(format!("samples/{sample_number}.in"));
     let sample_out_file = task_dir.join(format!("samples/{sample_number}.out"));
-    Ok(if sample_in_file.is_file() && sample_out_file.is_file() {
-        let sample_in = fs::read_to_string(&sample_in_file)?;
-        let sample_out = fs::read_to_string(&sample_out_file)?;
-        Some((sample_in, sample_out))
-    } else {
-        None
-    })
+    (sample_in_file.is_file() && sample_out_file.is_file())
+        .then(|| -> Result<_> {
+            let sample_in = fs::read_to_string(&sample_in_file)?;
+            let sample_out = fs::read_to_string(&sample_out_file)?;
+            Ok((sample_in, sample_out))
+        })
+        .transpose()
 }
 
 #[hooq(anyhow)]
@@ -142,8 +142,7 @@ pub fn sample_test(
     sample_out: &str,
 ) -> Result<TestResult> {
     let exec_file = contest_dir
-        .parent()
-        .unwrap()
+        .parent()?
         .join(format!("target/debug/{}-{}", contest_data.name, task.name));
 
     let (is_tle, output, exec_time) = run_test(&exec_file, sample_in)?;
@@ -241,7 +240,7 @@ pub fn display_all_test_results(samples: &[(String, String)], results: &[TestRes
 
 #[cfg(test)]
 mod test {
-    use crate::api::sample_test::is_correct;
+    use super::is_correct;
 
     #[test]
     fn sample_correct_test() {

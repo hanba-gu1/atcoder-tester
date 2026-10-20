@@ -3,8 +3,11 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use anyhow::{Context, Result, bail};
+use anyhow::{Context, Result};
+use hooq::hooq;
 use serde::{Deserialize, Serialize};
+
+use crate::ensure;
 
 pub const CONFIG_FILE_NAME: &str = "actester.toml";
 pub const CONTEST_DATA_FILE_NAME: &str = "contest.json";
@@ -19,6 +22,7 @@ pub struct Config {
     pub open: Open,
 }
 
+#[hooq(anyhow)]
 impl Config {
     pub fn read(dir: &Path) -> Result<(PathBuf, Self)> {
         let mut dir = dir.to_path_buf();
@@ -31,12 +35,11 @@ impl Config {
                         .context(format!("failed to read `{CONFIG_FILE_NAME}`"))?,
                 )?;
             }
-            if !dir.pop() {
-                bail!(
-                    "could not find `{CONFIG_FILE_NAME}` in `{}` or any parent directory",
-                    dir.display()
-                );
-            }
+            ensure!(
+                dir.pop(),
+                "could not find `{CONFIG_FILE_NAME}` in `{}` or any parent directory",
+                dir.display()
+            );
         };
 
         Ok((dir, config))
@@ -80,27 +83,27 @@ pub struct Contest {
     pub tasks: Vec<Task>,
 }
 
+#[hooq(anyhow)]
 impl Contest {
     pub fn read(dir: &Path) -> Result<(PathBuf, Self)> {
-        let mut dir = dir.to_path_buf();
+        let mut reading_dir = dir.to_path_buf();
 
         let contest_data = loop {
-            let contest_data_file_path = dir.join(CONTEST_DATA_FILE_NAME);
+            let contest_data_file_path = reading_dir.join(CONTEST_DATA_FILE_NAME);
             if contest_data_file_path.exists() {
                 let content = fs::read(contest_data_file_path)
                     .context(format!("failed read `{CONTEST_DATA_FILE_NAME}`"))?;
                 let contest_data = serde_json::from_slice::<Contest>(&content)?;
                 break contest_data;
             }
-            if !dir.pop() {
-                bail!(
-                    "could not find `{CONTEST_DATA_FILE_NAME}` in `{}` or any parent directory",
-                    dir.display()
-                );
-            }
+            ensure!(
+                reading_dir.pop(),
+                "could not find `{CONTEST_DATA_FILE_NAME}` in `{}` or any parent directory",
+                dir.display(),
+            );
         };
 
-        Ok((dir, contest_data))
+        Ok((reading_dir, contest_data))
     }
 }
 

@@ -9,6 +9,7 @@ mod test;
 use add::Add;
 use anyhow::Result;
 use clip::Clip;
+use hooq::hooq;
 use init::Init;
 use login::login;
 use open::Open;
@@ -43,6 +44,7 @@ pub enum SubCommands {
     Open(Open),
 }
 
+#[hooq(anyhow)]
 impl SubCommands {
     pub async fn exec(self) -> Result<()> {
         use SubCommands::*;

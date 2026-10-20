@@ -1,14 +1,18 @@
 use std::env::current_dir;
 
-use anyhow::{Result, ensure};
+use anyhow::Result;
 use dialoguer::{Confirm, theme::ColorfulTheme};
+use hooq::hooq;
 
-use crate::api::{
-    config::{Config, Contest},
-    contest::{specify_task, submit_code},
-    expand_files::expand_files,
-    http::build_client,
-    sample_test::{build_for_test, display_all_test_results, get_all_samples, test_all_sample},
+use crate::{
+    api::{
+        config::{Config, Contest},
+        contest::{specify_task, submit_code},
+        expand_files::expand_files,
+        http::build_client,
+        sample_test::{build_for_test, display_all_test_results, get_all_samples, test_all_sample},
+    },
+    ensure,
 };
 
 #[derive(Debug, clap::Args)]
@@ -20,6 +24,7 @@ pub struct Submit {
     no_build: bool,
 }
 
+#[hooq(anyhow)]
 impl Submit {
     pub async fn submit(&self) -> Result<()> {
         let client = build_client()?;
@@ -47,7 +52,7 @@ impl Submit {
                 let (all_ac, results) =
                     test_all_sample(&contest_dir, &contest_data, task, &samples)?;
                 display_all_test_results(&samples, &results);
-                ensure!(all_ac, "Some sample testcases was not passed.");
+                ensure!(all_ac, "Some sample testcases were not passed.");
             }
         }
 

@@ -1,14 +1,18 @@
 use std::{env::current_dir, iter, path::Path, time::Duration};
 
-use anyhow::{Context as _, Result, ensure};
+use anyhow::{Context as _, Result};
+use hooq::hooq;
 use percent_encoding::{NON_ALPHANUMERIC, utf8_percent_encode};
 use reqwest::{Client, Url};
 use scraper::Html;
 use tokio::{fs, join};
 
-use crate::api::{
-    config::{Config, Contest, Task},
-    http::get_html,
+use crate::{
+    api::{
+        config::{Config, Contest, Task},
+        http::get_html,
+    },
+    ensure, user_error,
 };
 
 macro_rules! lazy_selector {
@@ -19,18 +23,19 @@ macro_rules! lazy_selector {
     }};
 }
 
+#[hooq(anyhow)]
 pub fn get_contest_title(html: &Html) -> Result<String> {
     let contest_title_selector = lazy_selector!(".contest-title");
 
     let contest_title = html
         .select(contest_title_selector)
         .next()
-        .map(|elem| elem.inner_html().trim().to_string())
-        .context("failed to get contest title")?;
+        .map(|elem| elem.inner_html().trim().to_string())?;
 
     Ok(contest_title)
 }
 
+#[hooq(anyhow)]
 pub fn get_tasks_name_and_title(html: &Html) -> Result<Vec<(String, String)>> {
     let tr_selector = lazy_selector!("tr");
     let a_selector = lazy_selector!("a");
@@ -44,8 +49,7 @@ pub fn get_tasks_name_and_title(html: &Html) -> Result<Vec<(String, String)>> {
             let task_name = href
                 .trim_end_matches('/')
                 .split('/')
-                .next_back()
-                .unwrap()
+                .next_back()?
                 .to_string();
             let task_title = a_elem.inner_html();
             tasks.push((task_name, task_title));
@@ -117,27 +121,29 @@ fn parse_selected_task(task: &str) -> Result<usize> {
         .parse()
         .ok()
         .or_else(|| parse_task_num_from_enletter(task))
-        .context("task must be specified by number or alphabet")?;
+        .ok_or(user_error!("task must be specified by number or alphabet"))?;
 
     Ok(task)
 }
 
 fn parse_task_num_from_enletter(task: &str) -> Option<usize> {
     let task = task.trim().to_ascii_lowercase();
-    if !task.chars().all(|c| c.is_ascii_lowercase()) {
-        None?
-    }
+    task.chars()
+        .all(|c| c.is_ascii_lowercase())
+        .then(|| {
+            let mut ret = task.chars().next()? as usize - 97;
 
-    let mut ret = task.chars().next()? as usize - 97;
+            for c in task.chars().skip(1) {
+                let c = c as usize - 97;
+                ret = (ret + 1) * 26 + c;
+            }
 
-    for c in task.chars().skip(1) {
-        let c = c as usize - 97;
-        ret = (ret + 1) * 26 + c;
-    }
-
-    Some(ret + 1)
+            Some(ret + 1)
+        })
+        .flatten()
 }
 
+#[hooq(anyhow)]
 pub fn specify_task<'a>(
     contest_dir: &Path,
     contest_data: &'a Contest,
@@ -156,11 +162,11 @@ pub fn specify_task<'a>(
         ensure!(current_dir != contest_dir, "task must be specified");
         let mut temp = current_dir.clone();
 
-        while temp.parent().unwrap() != contest_dir {
+        while temp.parent()? != contest_dir {
             temp.pop();
         }
 
-        let task_name = temp.file_name().unwrap().to_string_lossy().into_owned();
+        let task_name = temp.file_name()?.to_string_lossy().into_owned();
         contest_data
             .tasks
             .iter()
@@ -211,6 +217,7 @@ pub async fn set_task_crate(
     Ok(())
 }
 
+#[hooq(anyhow)]
 async fn get_csrf_token(html: &Html) -> Result<String> {
     let csrf_selector = lazy_selector!("input[name=csrf_token]");
 
@@ -218,8 +225,7 @@ async fn get_csrf_token(html: &Html) -> Result<String> {
         .select(csrf_selector)
         .next()
         .context("could not find csrf_token")?
-        .attr("value")
-        .unwrap()
+        .attr("value")?
         .to_string();
 
     Ok(csrf_token)

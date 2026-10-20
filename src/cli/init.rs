@@ -1,4 +1,5 @@
 use anyhow::{Result, ensure};
+use hooq::hooq;
 use std::{fs, path::PathBuf};
 
 use crate::api::config::CONFIG_FILE_NAME;
@@ -9,6 +10,7 @@ pub struct Init {
     dest: PathBuf,
 }
 
+#[hooq(anyhow)]
 impl Init {
     pub fn init(&self) -> Result<()> {
         let config_file_path = self.dest.join(CONFIG_FILE_NAME);

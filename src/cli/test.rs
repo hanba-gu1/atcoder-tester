@@ -1,14 +1,18 @@
 use std::env::current_dir;
 
-use anyhow::{Context, Result, ensure};
+use anyhow::{Context, Result};
+use hooq::hooq;
 
-use crate::api::{
-    config::{Config, Contest},
-    contest::specify_task,
-    sample_test::{
-        TestStaus, build_for_test, display_all_test_results, display_test_result, get_all_samples,
-        get_sample, sample_test, test_all_sample,
+use crate::{
+    api::{
+        config::{Config, Contest},
+        contest::specify_task,
+        sample_test::{
+            TestStaus, build_for_test, display_all_test_results, display_test_result,
+            get_all_samples, get_sample, sample_test, test_all_sample,
+        },
     },
+    ensure,
 };
 
 #[derive(Debug, clap::Args)]
@@ -20,6 +24,7 @@ pub struct Test {
     no_build: bool,
 }
 
+#[hooq(anyhow)]
 impl Test {
     pub fn test(&self) -> Result<()> {
         let current_dir = current_dir()?;
@@ -51,7 +56,7 @@ impl Test {
             }
             let (all_ac, results) = test_all_sample(&contest_dir, &contest_data, task, &samples)?;
             display_all_test_results(&samples, &results);
-            ensure!(all_ac, "Some sample testcases was not passed.");
+            ensure!(all_ac, "Some sample testcases were not passed.");
         }
 
         Ok(())
